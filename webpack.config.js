@@ -1,11 +1,12 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
+import HtmlWebpackPlugin from 'html-webpack-plugin';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default {
-  entry: './src/main.js',
+  entry: './src/index.js',
   output: {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist'),
@@ -45,6 +46,7 @@ export default {
     },
     compress: true,
     port: 9000,
+    historyApiFallback: true,
     hot: true, 
     open: true, 
     client: {
@@ -55,7 +57,13 @@ export default {
     },
   },
   plugins: [
-    
+    new HtmlWebpackPlugin({
+      template: './src/index.html',
+      filename: 'index.html'
+    })
   ],
+  resolve: {
+    extensions: ['.js', '.json'] 
+  },
   mode: 'development', 
 };
