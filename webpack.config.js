@@ -1,6 +1,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
+import CopyPlugin from 'copy-webpack-plugin';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,8 +11,8 @@ export default {
   output: {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist'),
-    clean: true, 
-    assetModuleFilename: 'assets/[hash][ext][query]' 
+    clean: true,
+    assetModuleFilename: 'assets/[hash][ext][query]'
   },
   module: {
     rules: [
@@ -28,15 +29,15 @@ export default {
       },
       {
         test: /\.(png|jpe?g|gif|svg|webp|ico)$/i,
-        type: 'asset/resource', 
+        type: 'asset/resource',
       },
       {
         test: /\.(woff2?|eot|ttf|otf)$/i,
-        type: 'asset/resource', 
+        type: 'asset/resource',
       },
       {
         test: /\.(mp4|webm|ogg|mp3|wav|flac|aac)$/i,
-        type: 'asset/resource', 
+        type: 'asset/resource',
       },
     ],
   },
@@ -47,8 +48,8 @@ export default {
     compress: true,
     port: 9000,
     historyApiFallback: true,
-    hot: true, 
-    open: true, 
+    hot: true,
+    open: true,
     client: {
       overlay: {
         errors: true,
@@ -59,11 +60,20 @@ export default {
   plugins: [
     new HtmlWebpackPlugin({
       template: './src/index.html',
-      filename: 'index.html'
+      filename: 'index.html',
+      favicon: './src/img/favicon/kermit-the-frog.svg'
+    }),
+    new CopyPlugin({
+      patterns: [
+        { 
+          from: 'src/img/favicon', 
+          to: 'assets/favicon' 
+        }
+      ],
     })
   ],
   resolve: {
-    extensions: ['.js', '.json'] 
+    extensions: ['.js', '.json']
   },
-  mode: 'development', 
+  mode: 'development',
 };
