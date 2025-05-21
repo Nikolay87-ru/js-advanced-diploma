@@ -14,6 +14,7 @@ export default {
     clean: true,
     assetModuleFilename: 'assets/[hash][ext][query]'
   },
+  devtool: 'source-map',
   module: {
     rules: [
       {
@@ -49,7 +50,11 @@ export default {
     port: 9000,
     historyApiFallback: true,
     hot: true,
-    open: true,
+    open: {
+      app: {
+        name: 'google-chrome', 
+      },
+    },
     client: {
       overlay: {
         errors: true,
