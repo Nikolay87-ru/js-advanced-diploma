@@ -24,10 +24,9 @@
  * */
 export function calcTileType(index, boardSize) {
   const topLeftCell = 0;
-  const topRightCell = 7;
+  const topRightCell = boardSize - 1;
   const bottomRightCell = boardSize * boardSize - 1;
-  const bottomLeftCell = bottomRightCell - 7;
-  
+  const bottomLeftCell = bottomRightCell - (boardSize - 1);
 
   if (index === topLeftCell) return 'top-left';
   if (index === topRightCell) return 'top-right';
@@ -37,8 +36,8 @@ export function calcTileType(index, boardSize) {
   if (index < topRightCell) return 'top';
   if (index > bottomLeftCell) return 'bottom';
 
-  if (index % 8 === topLeftCell) return 'left';
-  if (index % 8 === topRightCell) return 'right';
+  if (index % boardSize === 0) return 'left';
+  if (index % boardSize === boardSize - 1) return 'right';
   
   return 'center';
 }
