@@ -10,6 +10,7 @@ export default class GameStateService {
   load() {
     try {
       return JSON.parse(this.storage.getItem('state'));
+    // eslint-disable-next-line no-unused-vars
     } catch (e) {
       throw new Error('Invalid state');
     }
