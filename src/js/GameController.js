@@ -1,4 +1,5 @@
 import themes from './themes.js';
+import { PositionedCharacter } from './PositionedCharacter.js';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
