@@ -18,6 +18,7 @@ export default class GameController {
     this.enemyTypes = [Daemon, Undead, Vampire];
     this.maxLevel = 4;
     this.characterCount = 2;
+    this.maxCharactersPerTeam = 3;
   }
 
   init() {
@@ -29,14 +30,50 @@ export default class GameController {
   }
 
   generateTeams() {
-    this.playerTeam = generateTeam(this.playerTypes, this.maxLevel, this.characterCount);
-    this.positionedPlayerCharacters = this.positionCharacters(this.playerTeam.characters, [0, 1]);
-    
-    this.enemyTeam = generateTeam(this.enemyTypes, this.maxLevel, this.characterCount);
-    this.positionedEnemyCharacters = this.positionCharacters(this.enemyTeam.characters, [6, 7]);
+    this.playerTeam = generateTeam(
+      this.playerTypes,
+      this.maxLevel,
+      this.characterCount
+    );
+    this.positionedPlayerCharacters = this.positionCharacters(
+      this.playerTeam.characters,
+      [0, 1]
+    );
+
+    this.enemyTeam = generateTeam(
+      this.enemyTypes,
+      this.maxLevel,
+      this.characterCount
+    );
+    this.positionedEnemyCharacters = this.positionCharacters(
+      this.enemyTeam.characters,
+      [6, 7]
+    );
   }
 
-  
+  positionCharacters(characters, allowedColumns) {
+    const boardSize = this.gamePlay.boardSize;
+
+    const allPossiblePositions = allowedColumns.flatMap((col) =>
+      Array.from({ length: boardSize }, (_, row) => row * boardSize + col)
+    );
+
+    const shuffledPositions = [...allPossiblePositions].sort(
+      () => Math.random() - 0.5
+    );
+
+    return characters.map((character, index) => {
+      return new PositionedCharacter(character, shuffledPositions[index]);
+    });
+  }
+
+  redrawTeams() {
+    const allPositionedCharacters = [
+      ...this.positionedPlayerCharacters,
+      ...this.positionedEnemyCharacters,
+    ];
+    this.gamePlay.redrawPositions(allPositionedCharacters);
+  }
 
   onCellClick(index) {
     // TODO: react to click
