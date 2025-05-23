@@ -1,4 +1,4 @@
-import Character from '../Character';
+import Character from '../Character.js';
 
 export default class Vampire extends Character {
   constructor(level) {

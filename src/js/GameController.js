@@ -1,6 +1,12 @@
 import themes from './themes.js';
 import { PositionedCharacter } from './PositionedCharacter.js';
 import { generateTeam } from './generators.js';
+import Bowman from './characters/Bowman.js';
+import Swordsman from './characters/Swordsman.js';
+import Magician from './characters/Magician.js';
+import Daemon from './characters/Daemon.js';
+import Undead from './characters/Undead.js';
+import Vampire from './characters/Vampire.js';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
@@ -8,6 +14,10 @@ export default class GameController {
     this.stateService = stateService;
     this.playerTeam = [];
     this.enemyTeam = [];
+    this.playerTypes = [Bowman, Swordsman, Magician];
+    this.enemyTypes = [Daemon, Undead, Vampire];
+    this.maxLevel = 4;
+    this.characterCount = 2;
   }
 
   init() {
