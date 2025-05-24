@@ -77,6 +77,36 @@ body {
   border-style: dashed;
 }
 
+.custom-tooltip {
+  position: absolute;
+  z-index: 1000;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 3px 3px;
+  border-radius: 4px;
+  min-width: 160px;
+  font-family: 'Courier New', monospace;
+  display: none;
+  pointer-events: none; 
+}
+
+
+.custom-tooltip .character-type {
+  font-size: 1.2em;
+  font-weight: bold;
+  display: block;
+  text-align: center;
+  margin-bottom: 5px;
+  color: #fff;
+}
+
+.cell:hover .custom-tooltip {
+  display: block;
+}
+
 .board.prairie {
   --map-tile-top-left-url: url('../img/prairie/map-tile-top-left.png');
   --map-tile-top-url: url('../img/prairie/map-tile-top.png');

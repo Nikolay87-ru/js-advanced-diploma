@@ -96,27 +96,28 @@ export default class GameController {
   }
 
   onCellClick(index) {
-    const clickedCharacter = [
-      ...this.positionedPlayerCharacters,
-      ...this.positionedEnemyCharacters,
-    ].find((pc) => pc.position === index)?.character;
+    const clickedCharacter = this.findCharacterByPosition(index);
     if (clickedCharacter) {
       this.gamePlay.selectCell(index, 'yellow');
     }
   }
 
   onCellEnter(index) {
-    this.gamePlay.setCursor('pointer');
-    const character = [
-      ...this.positionedPlayerCharacters,
-      ...this.positionedEnemyCharacters,
-    ].find((pc) => pc.position === index)?.character;
+    const character = this.findCharacterByPosition(index);
     if (character) {
+      this.gamePlay.setCursor('pointer');
       this.gamePlay.selectCell(index, 'green');
-      this.gamePlay.showCellTooltip(
-        `${character.type} (🎖${character.level} ⚔${character.attack} 🛡${character.defence} ❤${character.health})`,
-        index
-      );
+      
+      const tooltipContent = `
+        <div class="character-type">${character.type.toUpperCase()}</div>
+        <div>🎖${character.level} ❤${character.health} 
+        ⚔${character.attack} 🛡${character.defence}</div>
+      `;
+      
+      this.gamePlay.showCellTooltip(tooltipContent, index);
+    } else {
+      this.gamePlay.setCursor('auto');
+      this.gamePlay.hideCellTooltip(index);
     }
   }
 
@@ -124,5 +125,13 @@ export default class GameController {
     this.gamePlay.deselectCell(index);
     this.gamePlay.hideCellTooltip(index);
     this.gamePlay.setCursor('auto');
+  }
+
+  findCharacterByPosition(index) {
+    const allCharacters = [
+      ...this.positionedPlayerCharacters,
+      ...this.positionedEnemyCharacters,
+    ];
+    return allCharacters.find((c) => c.position === index)?.character;
   }
 }

@@ -197,11 +197,24 @@ export default class GamePlay {
   }
 
   showCellTooltip(message, index) {
-    this.cells[index].title = message;
+    this.hideCellTooltip(index);
+    
+    const tooltip = document.createElement('div');
+    tooltip.className = 'custom-tooltip';
+    tooltip.innerHTML = message;
+    
+    const cell = this.cells[index];
+    cell.appendChild(tooltip);
+    
+    cell.tooltipElement = tooltip;
   }
-
+  
   hideCellTooltip(index) {
-    this.cells[index].title = '';
+    const cell = this.cells[index];
+    if (cell.tooltipElement) {
+      cell.removeChild(cell.tooltipElement);
+      delete cell.tooltipElement;
+    }
   }
   
   showDamage(index, damage) {
