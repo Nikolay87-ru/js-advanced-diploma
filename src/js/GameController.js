@@ -23,6 +23,7 @@ export default class GameController {
     this.enemyTeam = [];
     this.positionedPlayerCharacters = [];
     this.positionedEnemyCharacters = [];
+    this.selectedCharacter = null;
   }
 
   init() {
@@ -97,16 +98,28 @@ export default class GameController {
 
   onCellClick(index) {
     const clickedCharacter = this.findCharacterByPosition(index);
-    if (clickedCharacter) {
+    
+    if (clickedCharacter && this.playerTeam.characters.includes(clickedCharacter)) {
+      if (this.selectedCharacter) {
+        const prevPosition = this.findPositionByCharacter(this.selectedCharacter);
+        if (prevPosition !== null) {
+          this.gamePlay.deselectCell(prevPosition);
+        }
+      }
+      
+      this.selectedCharacter = clickedCharacter;
       this.gamePlay.selectCell(index, 'yellow');
     }
   }
-
+  
   onCellEnter(index) {
     const character = this.findCharacterByPosition(index);
     if (character) {
       this.gamePlay.setCursor('pointer');
-      this.gamePlay.selectCell(index, 'green');
+      
+      if (character !== this.selectedCharacter) {
+        this.gamePlay.selectCell(index, 'green');
+      }
       
       const tooltipContent = `
         <div class="character-type">${character.type.toUpperCase()}</div>
@@ -120,18 +133,32 @@ export default class GameController {
       this.gamePlay.hideCellTooltip(index);
     }
   }
-
+  
   onCellLeave(index) {
-    this.gamePlay.deselectCell(index);
+    const character = this.findCharacterByPosition(index);
+    
+    if (character && character !== this.selectedCharacter) {
+      this.gamePlay.deselectCell(index);
+    }
+    
     this.gamePlay.hideCellTooltip(index);
     this.gamePlay.setCursor('auto');
   }
-
-  findCharacterByPosition(index) {
+  
+  findCharacterByPosition = (index) => {
     const allCharacters = [
       ...this.positionedPlayerCharacters,
       ...this.positionedEnemyCharacters,
     ];
     return allCharacters.find((c) => c.position === index)?.character;
+  }
+  
+  findPositionByCharacter = (character) => {
+    const allCharacters = [
+      ...this.positionedPlayerCharacters,
+      ...this.positionedEnemyCharacters,
+    ];
+    const positionedChar = allCharacters.find(c => c.character === character);
+    return positionedChar ? positionedChar.position : null;
   }
 }

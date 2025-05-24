@@ -65,11 +65,13 @@ body {
 .cell.selected-yellow::before {
   border-color: #ff0;
   border-style: solid;
+  display: block; 
 }
 
 .cell.selected-green::before {
   border-color: #0f0;
   border-style: dashed;
+  display: block; 
 }
 
 .cell.selected-red::before {
