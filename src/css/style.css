@@ -33,12 +33,11 @@ body {
 }
 
 .game-info {
-  background-color: #333;
+  background-color: #000;
   color: white;
   padding: 10px;
   text-align: center;
   font-family: 'Courier New', monospace;
-  border-bottom: 2px solid #555;
 }
 
 .turn-indicator {
