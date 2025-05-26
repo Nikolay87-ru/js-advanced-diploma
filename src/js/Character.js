@@ -19,6 +19,8 @@ export default class Character {
     this.defence = 0;
     this.health = 50;
     this.type = type;
+    this.moveDistance = 1;
+    this.attackDistance = 1;
 
     if (new.target.name === "Character") {
       throw new Error("Can't use new Character");
