@@ -2,6 +2,7 @@ import themes from './themes.js';
 import { PositionedCharacter } from './PositionedCharacter.js';
 import { generateTeam } from './generators.js';
 import GamePlay from './GamePlay.js';
+import GameState from './GameState.js';
 import Bowman from './characters/Bowman.js';
 import Swordsman from './characters/Swordsman.js';
 import Magician from './characters/Magician.js';
@@ -26,7 +27,7 @@ export default class GameController {
     this.positionedEnemyCharacters = [];
     this.selectedCharacter = null;
 
-    this.currentTurn = 'player';
+    this.gameState = new GameState();
     this.selectedCharacter = null;
     this.selectedCellIndex = null;
   }
@@ -36,19 +37,14 @@ export default class GameController {
       this.gamePlay.drawUi(themes.prairie);
       this.generateTeams();
       this.redrawTeams();
+      this.setupEventListeners(); 
     } catch (error) {
       this.gamePlay.showError(error.message);
     }
-
-    this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
-    this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
-    this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
-
     this.updateTurnIndicator();
   }
 
   generateTeams() {
-    // лимит на кол-во персонажей в команде (устанавливается в this.maxCharacters)
     const actualCount = Math.min(this.characterCount, this.maxCharacters);
 
     this.playerTeam = generateTeam(
@@ -103,33 +99,45 @@ export default class GameController {
     this.gamePlay.redrawPositions(allPositionedCharacters);
   }
 
-  onCellClick(index) {
-    const allChars = [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters];
-    const clickedCharacter = this.gamePlay.findCharacterByPosition(
-      allChars,
-      index
-    );
+  setupEventListeners() {
+    this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
+    this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
+    this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
+  }
 
-    if (
-      clickedCharacter &&
-      this.playerTeam.characters.includes(clickedCharacter)
-    ) {
-      if (this.selectedCharacter) {
-        const prevPosition = this.gamePlay.findPositionByCharacter(
-          [
-            ...this.positionedPlayerCharacters,
-            ...this.positionedEnemyCharacters,
-          ],
-          this.selectedCharacter
-        );
-        if (prevPosition !== null) {
-          this.gamePlay.deselectCell(prevPosition);
-        }
-      }
-
-      this.selectedCharacter = clickedCharacter;
-      this.gamePlay.selectCell(index, 'yellow');
+  updateTurnIndicator() {
+    const turnElement = document.getElementById('current-turn');
+    if (this.gameState.currentTurn === 'player') {
+      turnElement.textContent = 'Ваш ход';
+      turnElement.className = 'player-turn';
+    } else {
+      turnElement.textContent = 'Ход противника';
+      turnElement.className = 'enemy-turn';
     }
+  }
+
+  onCellClick(index) {
+    if (this.gameState.currentTurn !== 'player') {
+      this.gamePlay.showError('Сейчас не ваш ход!');
+      return;
+    }
+
+    const allChars = [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters];
+    const clickedCharacter = this.gamePlay.findCharacterByPosition(allChars, index);
+
+    if (!clickedCharacter || !this.playerTeam.characters.includes(clickedCharacter)) {
+      this.gamePlay.showError('Выберите своего персонажа!');
+      return;
+    }
+
+    if (this.selectedCharacter) {
+      const prevPos = this.gamePlay.findPositionByCharacter(allChars, this.selectedCharacter);
+      if (prevPos !== null) this.gamePlay.deselectCell(prevPos);
+    }
+
+    this.selectedCharacter = clickedCharacter;
+    this.selectedCellIndex = index;
+    this.gamePlay.selectCell(index, 'yellow');
   }
 
   onCellEnter(index) {
@@ -170,5 +178,61 @@ export default class GameController {
   
     this.gamePlay.hideCellTooltip(index);
     this.gamePlay.setCursor('auto');
+  }
+
+  switchTurn() {
+    this.gameState.currentTurn = this.gameState.currentTurn === 'player' ? 'enemy' : 'player';
+    this.updateTurnIndicator();
+    
+    if (this.gameState.currentTurn === 'enemy') {
+      this.makeEnemyMove();
+    }
+  }
+
+  makeEnemyMove() {
+    const aliveEnemies = this.enemyTeam.characters.filter(c => c.health > 0);
+    if (aliveEnemies.length === 0) {
+      this.gamePlay.showMessage('Вы победили!');
+      return;
+    }
+  
+    const enemyCharacter = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
+    const enemyPos = this.gamePlay.findPositionByCharacter(
+      this.positionedEnemyCharacters,
+      enemyCharacter
+    );
+  
+    const alivePlayers = this.playerTeam.characters.filter(c => c.health > 0);
+    if (alivePlayers.length === 0) {
+      this.gamePlay.showMessage('Вы проиграли!');
+      return;
+    }
+  
+    const targetCharacter = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+    const targetPos = this.gamePlay.findPositionByCharacter(
+      this.positionedPlayerCharacters,
+      targetCharacter
+    );
+  
+    setTimeout(() => {
+      this.gamePlay.selectCell(enemyPos, 'red');
+      this.gamePlay.selectCell(targetPos, 'red');
+  
+      const damage = Math.max(0, enemyCharacter.attack - targetCharacter.defence * 0.1);
+      targetCharacter.health -= damage;
+  
+      this.gamePlay.showDamage(targetPos, Math.round(damage)).then(() => {
+        this.redrawTeams();
+  
+        if (targetCharacter.health <= 0) {
+          this.gamePlay.showMessage(`${targetCharacter.type} побежден!`);
+        }
+  
+        this.gamePlay.deselectCell(enemyPos);
+        this.gamePlay.deselectCell(targetPos);
+  
+        this.switchTurn();
+      });
+    }, 1000);
   }
 }

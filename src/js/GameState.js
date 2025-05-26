@@ -1,6 +1,9 @@
 export default class GameState {
   static from(object) {
-    // TODO: create object
-    return null;
+    return new GameState(object.currentTurn);
+  }
+
+  constructor(currentTurn = 'player') {
+    this.currentTurn = currentTurn; 
   }
 }
