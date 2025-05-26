@@ -218,7 +218,7 @@ export default class GamePlay {
   }
 
   showCellTooltip(message, index) {
-    this.hideCellTooltip(index);
+    this.hideCellTooltip(index); 
     
     const tooltip = document.createElement('div');
     tooltip.className = 'custom-tooltip';
@@ -227,15 +227,21 @@ export default class GamePlay {
     const cell = this.cells[index];
     cell.appendChild(tooltip);
     
-    cell.tooltipElement = tooltip;
+    cell.dataset.tooltip = 'active';
+    tooltip.dataset.index = index; 
   }
   
   hideCellTooltip(index) {
     const cell = this.cells[index];
-    if (cell.tooltipElement) {
-      cell.removeChild(cell.tooltipElement);
-      delete cell.tooltipElement;
+    const tooltip = cell.querySelector('.custom-tooltip');
+    if (tooltip) {
+      try {
+        cell.removeChild(tooltip);
+      } catch {
+        throw new Error("Tooltip already deleted");
+      }
     }
+    delete cell.dataset.tooltip;
   }
   
   showDamage(index, damage) {

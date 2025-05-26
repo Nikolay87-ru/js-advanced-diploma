@@ -121,57 +121,84 @@ export default class GameController {
       this.gamePlay.showError('Сейчас не ваш ход!');
       return;
     }
-  
-    const allChars = [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters];
-    const clickedCharacter = this.gamePlay.findCharacterByPosition(allChars, index);
-  
+
+    const allChars = [
+      ...this.positionedPlayerCharacters,
+      ...this.positionedEnemyCharacters,
+    ];
+    const clickedCharacter = this.gamePlay.findCharacterByPosition(
+      allChars,
+      index
+    );
+
     // Если кликнули по своему персонажу - выбираем его
-    if (clickedCharacter && this.playerTeam.characters.includes(clickedCharacter)) {
+    if (
+      clickedCharacter &&
+      this.playerTeam.characters.includes(clickedCharacter)
+    ) {
       if (this.selectedCharacter) {
-        const prevPos = this.gamePlay.findPositionByCharacter(allChars, this.selectedCharacter);
+        const prevPos = this.gamePlay.findPositionByCharacter(
+          allChars,
+          this.selectedCharacter
+        );
         if (prevPos !== null) this.gamePlay.deselectCell(prevPos);
       }
-  
+
       this.selectedCharacter = clickedCharacter;
       this.selectedCellIndex = index;
       this.gamePlay.selectCell(index, 'yellow');
       return;
     }
-  
+
     // Если персонаж уже выбран, проверяем можно ли переместиться или атаковать
     if (this.selectedCharacter) {
       const selectedPos = this.gamePlay.findPositionByCharacter(
         this.positionedPlayerCharacters,
         this.selectedCharacter
       );
-  
-      const moves = this.getPossibleMoves(selectedPos, this.selectedCharacter.moveDistance);
-      const attacks = this.getPossibleAttacks(selectedPos, this.selectedCharacter.attackDistance);
-  
+
+      const moves = this.getPossibleMoves(
+        selectedPos,
+        this.selectedCharacter.moveDistance
+      );
+      const attacks = this.getPossibleAttacks(
+        selectedPos,
+        this.selectedCharacter.attackDistance
+      );
+
       if (moves.includes(index)) {
         // Перемещение
-        const pc = this.positionedPlayerCharacters.find(p => p.character === this.selectedCharacter);
+        const pc = this.positionedPlayerCharacters.find(
+          (p) => p.character === this.selectedCharacter
+        );
         pc.position = index;
         this.redrawTeams();
         this.switchTurn();
       } else if (attacks.includes(index)) {
         // Атака
         const target = this.gamePlay.findCharacterByPosition(allChars, index);
+        if (!target) {
+          this.gamePlay.showError('Цель не найдена!');
+          return;
+        }
         const damage = this.selectedCharacter.attack - target.defence * 0.1;
         target.health -= damage;
-  
+
         this.gamePlay.showDamage(index, Math.round(damage)).then(() => {
           this.redrawTeams();
           if (target.health <= 0) {
-            this.positionedEnemyCharacters = this.positionedEnemyCharacters.filter(
-              pc => pc.character !== target
-            );
+            this.positionedEnemyCharacters =
+              this.positionedEnemyCharacters.filter(
+                (pc) => pc.character !== target
+              );
             this.gamePlay.showMessage(`${target.type} побеждён!`);
           }
           this.switchTurn();
         });
       } else {
-        this.gamePlay.showError('Невозможно переместиться или атаковать эту клетку');
+        this.gamePlay.showError(
+          'Невозможно переместиться или атаковать эту клетку'
+        );
       }
     }
   }
@@ -231,41 +258,63 @@ export default class GameController {
     const boardSize = this.gamePlay.boardSize;
     const [row, col] = [Math.floor(position / boardSize), position % boardSize];
     const moves = [];
-  
-    for (let r = Math.max(0, row - moveDistance); r <= Math.min(boardSize - 1, row + moveDistance); r++) {
-      for (let c = Math.max(0, col - moveDistance); c <= Math.min(boardSize - 1, col + moveDistance); c++) {
+
+    for (
+      let r = Math.max(0, row - moveDistance);
+      r <= Math.min(boardSize - 1, row + moveDistance);
+      r++
+    ) {
+      for (
+        let c = Math.max(0, col - moveDistance);
+        c <= Math.min(boardSize - 1, col + moveDistance);
+        c++
+      ) {
         const idx = r * boardSize + c;
         if (idx !== position) {
           moves.push(idx);
         }
       }
     }
-  
-    return moves.filter(idx => {
+
+    return moves.filter((idx) => {
       // Проверяем, что клетка не занята другим персонажем
-      const allChars = [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters];
-      return !allChars.some(pc => pc.position === idx);
+      const allChars = [
+        ...this.positionedPlayerCharacters,
+        ...this.positionedEnemyCharacters,
+      ];
+      return !allChars.some((pc) => pc.position === idx);
     });
   }
-  
+
   getPossibleAttacks(position, attackDistance) {
     // Аналогично getPossibleMoves, но ищет вражеских персонажей
     const boardSize = this.gamePlay.boardSize;
     const [row, col] = [Math.floor(position / boardSize), position % boardSize];
     const attacks = [];
-  
-    for (let r = Math.max(0, row - attackDistance); r <= Math.min(boardSize - 1, row + attackDistance); r++) {
-      for (let c = Math.max(0, col - attackDistance); c <= Math.min(boardSize - 1, col + attackDistance); c++) {
+
+    for (
+      let r = Math.max(0, row - attackDistance);
+      r <= Math.min(boardSize - 1, row + attackDistance);
+      r++
+    ) {
+      for (
+        let c = Math.max(0, col - attackDistance);
+        c <= Math.min(boardSize - 1, col + attackDistance);
+        c++
+      ) {
         const idx = r * boardSize + c;
         if (idx !== position) {
           attacks.push(idx);
         }
       }
     }
-  
-    const allChars = [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters];
-    return attacks.filter(idx => {
-      const target = allChars.find(pc => pc.position === idx);
+
+    const allChars = [
+      ...this.positionedPlayerCharacters,
+      ...this.positionedEnemyCharacters,
+    ];
+    return attacks.filter((idx) => {
+      const target = allChars.find((pc) => pc.position === idx);
       return target && this.enemyTeam.characters.includes(target.character);
     });
   }
