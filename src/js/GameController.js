@@ -24,6 +24,10 @@ export default class GameController {
     this.positionedPlayerCharacters = [];
     this.positionedEnemyCharacters = [];
     this.selectedCharacter = null;
+
+    this.currentTurn = 'player'; 
+    this.selectedCharacter = null;
+    this.selectedCellIndex = null;
   }
 
   init() {
@@ -38,6 +42,8 @@ export default class GameController {
     this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
     this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
     this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
+
+    this.updateTurnIndicator();
   }
 
   generateTeams() {

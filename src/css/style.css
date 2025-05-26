@@ -32,6 +32,35 @@ body {
   margin: 50px 0;
 }
 
+.game-info {
+  background-color: #333;
+  color: white;
+  padding: 10px;
+  text-align: center;
+  font-family: 'Courier New', monospace;
+  border-bottom: 2px solid #555;
+}
+
+.turn-indicator {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.game-message {
+  color: #4CAF50;
+  min-height: 20px;
+}
+
+.game-error {
+  color: #F44336;
+  min-height: 20px;
+}
+
+#game-board {
+  margin-top: 20px;
+}
+
 .board-container {
   display: flex;
   align-items: center;

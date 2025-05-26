@@ -177,12 +177,20 @@ export default class GamePlay {
     this.loadGameListeners.forEach(o => o.call(null));
   }
 
-  static showError(message) {
-    alert(message);
+  showError(message) {
+    const errorElement = document.getElementById('game-error');
+    if (errorElement) {
+      errorElement.textContent = message;
+      setTimeout(() => errorElement.textContent = '', 3000);
+    }
   }
 
-  static showMessage(message) {
-    alert(message);
+  showMessage(message) {
+    const messageElement = document.getElementById('game-message');
+    if (messageElement) {
+      messageElement.textContent = message;
+      setTimeout(() => messageElement.textContent = '', 3000);
+    }
   }
 
   selectCell(index, color = 'yellow') {

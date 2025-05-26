@@ -1,6 +1,6 @@
 import Character from '../Character.js';
 
-export default class Vampire extends Character {
+export default class Zombie extends Character {
   constructor(level) {
     super(level);
     this.attack = 5;
