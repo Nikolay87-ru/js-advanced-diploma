@@ -145,6 +145,15 @@ export default class GamePlay {
     this.loadGameListeners.push(callback);
   }
 
+  findCharacterByPosition(positionedCharacters, index) {
+    return positionedCharacters.find((c) => c.position === index)?.character;
+  }
+  
+  findPositionByCharacter(positionedCharacters, character) {
+    const positionedChar = positionedCharacters.find(c => c.character === character);
+    return positionedChar ? positionedChar.position : null;
+  }
+
   onCellEnter(event) {
     event.preventDefault();
     const index = this.cells.indexOf(event.currentTarget);

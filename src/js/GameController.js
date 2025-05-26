@@ -1,6 +1,7 @@
 import themes from './themes.js';
 import { PositionedCharacter } from './PositionedCharacter.js';
 import { generateTeam } from './generators.js';
+import GamePlay from './GamePlay.js';
 import Bowman from './characters/Bowman.js';
 import Swordsman from './characters/Swordsman.js';
 import Magician from './characters/Magician.js';
@@ -25,7 +26,7 @@ export default class GameController {
     this.positionedEnemyCharacters = [];
     this.selectedCharacter = null;
 
-    this.currentTurn = 'player'; 
+    this.currentTurn = 'player';
     this.selectedCharacter = null;
     this.selectedCellIndex = null;
   }
@@ -103,68 +104,71 @@ export default class GameController {
   }
 
   onCellClick(index) {
-    const clickedCharacter = this.findCharacterByPosition(index);
-    
-    if (clickedCharacter && this.playerTeam.characters.includes(clickedCharacter)) {
+    const allChars = [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters];
+    const clickedCharacter = this.gamePlay.findCharacterByPosition(
+      allChars,
+      index
+    );
+
+    if (
+      clickedCharacter &&
+      this.playerTeam.characters.includes(clickedCharacter)
+    ) {
       if (this.selectedCharacter) {
-        const prevPosition = this.findPositionByCharacter(this.selectedCharacter);
+        const prevPosition = this.gamePlay.findPositionByCharacter(
+          [
+            ...this.positionedPlayerCharacters,
+            ...this.positionedEnemyCharacters,
+          ],
+          this.selectedCharacter
+        );
         if (prevPosition !== null) {
           this.gamePlay.deselectCell(prevPosition);
         }
       }
-      
+
       this.selectedCharacter = clickedCharacter;
       this.gamePlay.selectCell(index, 'yellow');
     }
   }
-  
+
   onCellEnter(index) {
-    const character = this.findCharacterByPosition(index);
+    const character = this.gamePlay.findCharacterByPosition(
+      [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters],
+      index
+    );
+
     if (character) {
       this.gamePlay.setCursor('pointer');
-      
+
       if (character !== this.selectedCharacter) {
         this.gamePlay.selectCell(index, 'green');
       }
-      
+
       const tooltipContent = `
         <div class="character-type">${character.type.toUpperCase()}</div>
         <div>🎖${character.level} ❤${character.health} 
         ⚔${character.attack} 🛡${character.defence}</div>
       `;
-      
+
       this.gamePlay.showCellTooltip(tooltipContent, index);
     } else {
       this.gamePlay.setCursor('auto');
       this.gamePlay.hideCellTooltip(index);
     }
   }
-  
+
   onCellLeave(index) {
-    const character = this.findCharacterByPosition(index);
-    
+    const character = this.gamePlay.findCharacterByPosition(
+      [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters],
+      index
+    );
+  
     if (character && character !== this.selectedCharacter) {
       this.gamePlay.deselectCell(index);
     }
-    
+  
     this.gamePlay.hideCellTooltip(index);
     this.gamePlay.setCursor('auto');
-  }
-  
-  findCharacterByPosition = (index) => {
-    const allCharacters = [
-      ...this.positionedPlayerCharacters,
-      ...this.positionedEnemyCharacters,
-    ];
-    return allCharacters.find((c) => c.position === index)?.character;
-  }
-  
-  findPositionByCharacter = (character) => {
-    const allCharacters = [
-      ...this.positionedPlayerCharacters,
-      ...this.positionedEnemyCharacters,
-    ];
-    const positionedChar = allCharacters.find(c => c.character === character);
-    return positionedChar ? positionedChar.position : null;
   }
 }
