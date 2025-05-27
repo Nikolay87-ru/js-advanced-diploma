@@ -21,11 +21,6 @@ export default class GamePlay {
     this.container = container;
   }
 
-  /**
-   * Draws boardEl with specific theme
-   *
-   * @param theme
-   */
   drawUi(theme) {
     this.checkBinding();
 
@@ -35,8 +30,14 @@ export default class GamePlay {
         <button data-id="action-save" class="btn">Save Game</button>
         <button data-id="action-load" class="btn">Load Game</button>
       </div>
+      <div id="action-points"></div>
       <div class="board-container">
         <div data-id="board" class="board"></div>
+      </div>
+      <div class="game-info">
+        <div id="current-turn" class="turn-indicator"></div>
+        <div id="game-message" class="game-message"></div>
+        <div id="game-error" class="game-error"></div>
       </div>
     `;
 
@@ -49,8 +50,8 @@ export default class GamePlay {
     this.loadGameEl.addEventListener('click', event => this.onLoadGameClick(event));
 
     this.boardEl = this.container.querySelector('[data-id=board]');
-
     this.boardEl.classList.add(theme);
+
     for (let i = 0; i < this.boardSize ** 2; i += 1) {
       const cellEl = document.createElement('div');
       cellEl.classList.add('cell', 'map-tile', `map-tile-${calcTileType(i, this.boardSize)}`);
@@ -63,90 +64,60 @@ export default class GamePlay {
     this.cells = Array.from(this.boardEl.children);
   }
 
-  /**
-   * Draws positions (with chars) on boardEl
-   *
-   * @param positions array of PositionedCharacter objects
-   */
   redrawPositions(positions) {
-    for (const cell of this.cells) {
-      cell.innerHTML = '';
-    }
+    this.cells.forEach(cell => cell.innerHTML = '');
 
-    for (const position of positions) {
+    positions.forEach(position => {
       const cellEl = this.boardEl.children[position.position];
       const charEl = document.createElement('div');
       charEl.classList.add('character', position.character.type);
+
+      if (this.controller?.movingCharacter === position.character) {
+        charEl.classList.add('moving');
+      }
 
       const healthEl = document.createElement('div');
       healthEl.classList.add('health-level');
 
       const healthIndicatorEl = document.createElement('div');
-      healthIndicatorEl.classList.add('health-level-indicator', `health-level-indicator-${calcHealthLevel(position.character.health)}`);
+      healthIndicatorEl.classList.add(
+        'health-level-indicator', 
+        `health-level-indicator-${calcHealthLevel(position.character.health)}`
+      );
       healthIndicatorEl.style.width = `${position.character.health}%`;
+      
       healthEl.appendChild(healthIndicatorEl);
-
       charEl.appendChild(healthEl);
       cellEl.appendChild(charEl);
-    }
+    });
   }
 
-  /**
-   * Add listener to mouse enter for cell
-   *
-   * @param callback
-   */
-  addCellEnterListener(callback) {
-    this.cellEnterListeners.push(callback);
-  }
-
-  /**
-   * Add listener to mouse leave for cell
-   *
-   * @param callback
-   */
-  addCellLeaveListener(callback) {
-    this.cellLeaveListeners.push(callback);
-  }
-
-  /**
-   * Add listener to mouse click for cell
-   *
-   * @param callback
-   */
   addCellClickListener(callback) {
     this.cellClickListeners.push(callback);
   }
 
-  /**
-   * Add listener to "New Game" button click
-   *
-   * @param callback
-   */
+  addCellEnterListener(callback) {
+    this.cellEnterListeners.push(callback);
+  }
+
+  addCellLeaveListener(callback) {
+    this.cellLeaveListeners.push(callback);
+  }
+
   addNewGameListener(callback) {
     this.newGameListeners.push(callback);
   }
 
-  /**
-   * Add listener to "Save Game" button click
-   *
-   * @param callback
-   */
   addSaveGameListener(callback) {
     this.saveGameListeners.push(callback);
   }
 
-  /**
-   * Add listener to "Load Game" button click
-   *
-   * @param callback
-   */
   addLoadGameListener(callback) {
     this.loadGameListeners.push(callback);
   }
 
   findCharacterByPosition(positionedCharacters, index) {
-    return positionedCharacters.find((c) => c.position === index)?.character;
+    return positionedCharacters.find(c => c.position === index)?.character;
   }
   
   findPositionByCharacter(positionedCharacters, character) {
@@ -217,50 +188,59 @@ export default class GamePlay {
     );
   }
 
-  showCellTooltip(message, index) {
-    this.hideCellTooltip(index); 
-    
-    const tooltip = document.createElement('div');
-    tooltip.className = 'custom-tooltip';
-    tooltip.innerHTML = message;
-    
-    const cell = this.cells[index];
-    cell.appendChild(tooltip);
-    
-    cell.dataset.tooltip = 'active';
-    tooltip.dataset.index = index; 
+  deselectAllCells() {
+    this.cells.forEach((_, index) => this.deselectCell(index));
   }
-  
-  hideCellTooltip(index) {
-    const cell = this.cells[index];
-    const tooltip = cell.querySelector('.custom-tooltip');
-    if (tooltip) {
+
+  hideActionMenu() {
+    const menus = document.querySelectorAll('.action-menu');
+    menus.forEach(menu => {
       try {
-        cell.removeChild(tooltip);
-      } catch {
-        throw new Error("Tooltip already deleted");
+        menu.parentNode?.removeChild(menu);
+      } catch (e) {
+        console.error('Error removing action menu:', e);
       }
-    }
-    delete cell.dataset.tooltip;
+    });
   }
-  
+
+  showActionMenu(index, items, type = 'attack') {
+    this.hideActionMenu();
+    
+    const menu = document.createElement('div');
+    menu.className = `action-menu ${type}-menu`;
+    
+    items.forEach(item => {
+      const button = document.createElement('button');
+      button.className = 'action-button';
+      button.textContent = item.text;
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        item.action();
+      });
+      menu.appendChild(button);
+    });
+    
+    const cell = this.cells[index];
+    cell.appendChild(menu);
+  }
+
   showDamage(index, damage) {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const cell = this.cells[index];
       const damageEl = document.createElement('span');
       damageEl.textContent = damage;
       damageEl.classList.add('damage');
+      
+      if (typeof damage === 'string' && damage.includes('Критический')) {
+        damageEl.classList.add('critical');
+      }
+      
       cell.appendChild(damageEl);
-
       damageEl.addEventListener('animationend', () => {
         cell.removeChild(damageEl);
         resolve();
       });
     });
-  }
-
-  setCursor(cursor) {
-    this.boardEl.style.cursor = cursor;
   }
 
   checkBinding() {

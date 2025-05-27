@@ -15,15 +15,20 @@
 export default class Character {
   constructor(level, type = "generic") {
     this.level = level;
-    this.attack = 0;
-    this.defence = 0;
-    this.health = 50;
+    this.health = 100;
     this.type = type;
     this.moveDistance = 1;
     this.attackDistance = 1;
+    this.actionPoints = 4; // Очки действий на ход
+    this.currentActionPoints = 4;
+    this.actions = {
+      attack: () => ({ damage: 10, cost: 1 }),
+      hardAttack: () => ({ damage: 15, cost: 2 }),
+      defence: () => ({ defence: this.defence * 2, cost: this.currentActionPoints })
+    };
+  }
 
-    if (new.target.name === "Character") {
-      throw new Error("Can't use new Character");
-    }
+  resetActionPoints() {
+    this.currentActionPoints = this.actionPoints;
   }
 }

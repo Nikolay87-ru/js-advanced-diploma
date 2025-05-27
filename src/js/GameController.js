@@ -24,11 +24,14 @@ export default class GameController {
     this.enemyTeam = [];
     this.positionedPlayerCharacters = [];
     this.positionedEnemyCharacters = [];
-    this.selectedCharacter = null;
 
     this.gameState = new GameState();
     this.selectedCharacter = null;
     this.selectedCellIndex = null;
+    this.isCharacterSelected = false;
+
+    this.movingCharacter = null;
+    this.movingPath = [];
   }
 
   init() {
@@ -41,24 +44,23 @@ export default class GameController {
       this.gamePlay.showError(error.message);
     }
     this.updateTurnIndicator();
+    this.resetCharactersActionPoints();
+  }
+
+  resetCharactersActionPoints() {
+    this.playerTeam.characters.forEach((c) => c.resetActionPoints());
+    this.enemyTeam.characters.forEach((c) => c.resetActionPoints());
   }
 
   generateTeams() {
-    // лимит на кол-во персонажей в партии (устанавливается в maxCharacters)
     const actualCount = Math.min(this.characterCount, this.maxCharacters);
-
-    this.playerTeam = generateTeam(
-      this.playerTypes,
-      this.maxLevel,
-      actualCount
-    );
+    this.playerTeam = generateTeam(this.playerTypes, this.maxLevel, actualCount);
     this.enemyTeam = generateTeam(this.enemyTypes, this.maxLevel, actualCount);
 
     this.positionedPlayerCharacters = this.positionCharacters(
       this.playerTeam.characters,
       [0, 1]
     );
-
     this.positionedEnemyCharacters = this.positionCharacters(
       this.enemyTeam.characters,
       [6, 7]
@@ -68,8 +70,8 @@ export default class GameController {
   positionCharacters(characters, allowedColumns) {
     const boardSize = this.gamePlay.boardSize;
     const usedPositions = new Set();
-
     const maxPossible = boardSize * allowedColumns.length;
+
     if (characters.length > maxPossible) {
       throw new Error(`Недостаточно места для ${characters.length} персонажей`);
     }
@@ -81,10 +83,7 @@ export default class GameController {
         )
         .filter((pos) => !usedPositions.has(pos));
 
-      const position =
-        availablePositions[
-          Math.floor(Math.random() * availablePositions.length)
-        ];
+      const position = availablePositions[Math.floor(Math.random() * availablePositions.length)];
       usedPositions.add(position);
 
       return new PositionedCharacter(character, position);
@@ -107,6 +106,8 @@ export default class GameController {
 
   updateTurnIndicator() {
     const turnElement = document.getElementById('current-turn');
+    if (!turnElement) return;
+
     if (this.gameState.currentTurn === 'player') {
       turnElement.textContent = 'Ваш ход';
       turnElement.className = 'player-turn';
@@ -117,257 +118,312 @@ export default class GameController {
   }
 
   onCellClick(index) {
-    if (this.gameState.currentTurn !== 'player') {
-      this.gamePlay.showError('Сейчас не ваш ход!');
+    const allChars = [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters];
+    const clickedChar = this.gamePlay.findCharacterByPosition(allChars, index);
+
+    if (clickedChar && this.playerTeam.characters.includes(clickedChar)) {
+      this.selectCharacter(clickedChar, index);
       return;
     }
 
-    const allChars = [
-      ...this.positionedPlayerCharacters,
-      ...this.positionedEnemyCharacters,
-    ];
-    const clickedCharacter = this.gamePlay.findCharacterByPosition(
-      allChars,
-      index
+    if (this.isCharacterSelected && clickedChar && this.enemyTeam.characters.includes(clickedChar)) {
+      this.showAttackMenu(this.selectedCharacter, clickedChar, index);
+      return;
+    }
+
+    if (this.isCharacterSelected && !clickedChar) {
+      this.moveCharacter(this.selectedCharacter, index);
+    }
+  }
+
+  selectCharacter(character, position) {
+    this.gamePlay.deselectAllCells();
+    this.gamePlay.hideActionMenu();
+
+    this.selectedCharacter = character;
+    this.selectedCellIndex = position;
+    this.isCharacterSelected = true;
+    
+    this.gamePlay.selectCell(position, 'yellow');
+    this.updateAvailableActions();
+  }
+
+  updateAvailableActions() {
+    if (!this.selectedCharacter) return;
+
+    this.showPossibleActions();
+    this.updateActionPointsDisplay();
+    this.showDefenceButton(this.selectedCellIndex);
+  }
+
+  async moveCharacter(character, toIndex) {
+    if (!this.isCharacterSelected) return false;
+
+    const path = this.calculatePath(
+      this.selectedCellIndex, 
+      toIndex,
+      Math.min(character.moveDistance, character.currentActionPoints)
     );
 
-    // Если кликнули по своему персонажу - выбираем его
-    if (
-      clickedCharacter &&
-      this.playerTeam.characters.includes(clickedCharacter)
-    ) {
-      if (this.selectedCharacter) {
-        const prevPos = this.gamePlay.findPositionByCharacter(
-          allChars,
-          this.selectedCharacter
-        );
-        if (prevPos !== null) this.gamePlay.deselectCell(prevPos);
-      }
+    if (!path?.length) return false;
 
-      this.selectedCharacter = clickedCharacter;
-      this.selectedCellIndex = index;
-      this.gamePlay.selectCell(index, 'yellow');
-      return;
+    this.movingCharacter = character;
+    this.movingPath = path;
+
+    await this.animateMovement();
+
+    this.positionedPlayerCharacters = this.positionedPlayerCharacters.map(pc => 
+      pc.character === character ? new PositionedCharacter(character, toIndex) : pc
+    );
+
+    character.currentActionPoints -= (path.length - 1);
+    this.selectedCellIndex = toIndex;
+
+    this.redrawTeams();
+    this.updateAvailableActions();
+
+    if (this.checkTurnEnd()) {
+      this.switchTurn();
     }
 
-    // Если персонаж уже выбран, проверяем можно ли переместиться или атаковать
-    if (this.selectedCharacter) {
-      const selectedPos = this.gamePlay.findPositionByCharacter(
-        this.positionedPlayerCharacters,
-        this.selectedCharacter
+    return true;
+  }
+
+  calculatePath(fromIndex, toIndex, maxDistance) {
+    const boardSize = this.gamePlay.boardSize;
+    const fromRow = Math.floor(fromIndex / boardSize);
+    const fromCol = fromIndex % boardSize;
+    const toRow = Math.floor(toIndex / boardSize);
+    const toCol = toIndex % boardSize;
+
+    const path = [fromIndex];
+    let currentRow = fromRow;
+    let currentCol = fromCol;
+
+    while (currentRow !== toRow || currentCol !== toCol) {
+      const rowStep = currentRow < toRow ? 1 : currentRow > toRow ? -1 : 0;
+      const colStep = currentCol < toCol ? 1 : currentCol > toCol ? -1 : 0;
+      
+      currentRow += rowStep;
+      currentCol += colStep;
+
+      const nextIndex = currentRow * boardSize + currentCol;
+      const allChars = [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters];
+      const charAtPos = this.gamePlay.findCharacterByPosition(allChars, nextIndex);
+      
+      if (charAtPos) break;
+      path.push(nextIndex);
+      if (path.length > maxDistance) break;
+    }
+
+    return path;
+  }
+
+  async animateMovement() {
+    if (!this.movingPath.length) return;
+
+    const character = this.movingCharacter;
+    const originalType = character.type;
+    character.type = 'generic';
+
+    for (let i = 1; i < this.movingPath.length; i++) {
+      const toIndex = this.movingPath[i];
+      this.positionedPlayerCharacters = this.positionedPlayerCharacters.map(pc => 
+        pc.character === character ? new PositionedCharacter(character, toIndex) : pc
       );
 
-      const moves = this.getPossibleMoves(
-        selectedPos,
-        this.selectedCharacter.moveDistance
-      );
-      const attacks = this.getPossibleAttacks(
-        selectedPos,
-        this.selectedCharacter.attackDistance
-      );
+      this.redrawTeams();
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
 
-      if (moves.includes(index)) {
-        // Перемещение
-        const pc = this.positionedPlayerCharacters.find(
-          (p) => p.character === this.selectedCharacter
-        );
-        pc.position = index;
-        this.redrawTeams();
-        this.switchTurn();
-      } else if (attacks.includes(index)) {
-        // Атака
-        const target = this.gamePlay.findCharacterByPosition(allChars, index);
-        if (!target) {
-          this.gamePlay.showError('Цель не найдена!');
-          return;
-        }
-        const damage = this.selectedCharacter.attack - target.defence * 0.1;
-        target.health -= damage;
+    character.type = originalType;
+    this.movingCharacter = null;
+    this.movingPath = [];
+  }
 
-        this.gamePlay.showDamage(index, Math.round(damage)).then(() => {
-          this.redrawTeams();
-          if (target.health <= 0) {
-            this.positionedEnemyCharacters =
-              this.positionedEnemyCharacters.filter(
-                (pc) => pc.character !== target
-              );
-            this.gamePlay.showMessage(`${target.type} побеждён!`);
+  showAttackMenu(attacker, target, targetIndex) {
+    const menuItems = [];
+    
+    if (attacker.currentActionPoints >= 1) {
+      menuItems.push({
+        text: `Атака (1 очко)`,
+        action: () => this.performAttack(attacker, target, targetIndex, 'attack')
+      });
+    }
+    
+    if (attacker.currentActionPoints >= 2) {
+      menuItems.push({
+        text: `Сильная атака (2 очка)`,
+        action: () => this.performAttack(attacker, target, targetIndex, 'hardAttack')
+      });
+    }
+    
+    this.gamePlay.showActionMenu(targetIndex, menuItems, 'attack');
+  }
+
+  showDefenceButton(position) {
+    if (!this.selectedCharacter?.currentActionPoints) return;
+    
+    const menuItems = [{
+      text: `Защита (${this.selectedCharacter.currentActionPoints} очков)`,
+      action: () => this.performDefence(this.selectedCharacter)
+    }];
+    
+    this.gamePlay.showActionMenu(position, menuItems, 'defence');
+  }
+
+  getPossibleMoves(position, distance) {
+    const boardSize = this.gamePlay.boardSize;
+    const moves = [];
+
+    for (let row = 0; row < boardSize; row++) {
+      for (let col = 0; col < boardSize; col++) {
+        const idx = row * boardSize + col;
+        const rowDiff = Math.abs(Math.floor(position / boardSize) - row);
+        const colDiff = Math.abs((position % boardSize) - col);
+
+        if (rowDiff + colDiff <= distance && idx !== position) {
+          const allChars = [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters];
+          if (!this.gamePlay.findCharacterByPosition(allChars, idx)) {
+            moves.push(idx);
           }
-          this.switchTurn();
-        });
-      } else {
-        this.gamePlay.showError(
-          'Невозможно переместиться или атаковать эту клетку'
-        );
+        }
       }
+    }
+
+    return moves;
+  }
+
+  getPossibleAttacks(position, distance) {
+    const boardSize = this.gamePlay.boardSize;
+    const attacks = [];
+    const currentTeam = this.gameState.currentTurn === 'player' 
+      ? this.positionedEnemyCharacters 
+      : this.positionedPlayerCharacters;
+
+    for (let row = 0; row < boardSize; row++) {
+      for (let col = 0; col < boardSize; col++) {
+        const idx = row * boardSize + col;
+        const rowDiff = Math.abs(Math.floor(position / boardSize) - row);
+        const colDiff = Math.abs((position % boardSize) - col);
+
+        if (rowDiff <= distance && colDiff <= distance && idx !== position) {
+          if (this.gamePlay.findCharacterByPosition(currentTeam, idx)) {
+            attacks.push(idx);
+          }
+        }
+      }
+    }
+
+    return attacks;
+  }
+
+  showPossibleActions() {
+    if (!this.selectedCharacter) return;
+
+    this.gamePlay.deselectAllCells();
+    const position = this.gamePlay.findPositionByCharacter(
+      this.positionedPlayerCharacters,
+      this.selectedCharacter
+    );
+    if (position === null) return;
+
+    this.gamePlay.selectCell(position, 'yellow');
+
+    const maxDistance = Math.min(
+      this.selectedCharacter.moveDistance,
+      this.selectedCharacter.currentActionPoints
+    );
+
+    if (maxDistance > 0) {
+      this.getPossibleMoves(position, maxDistance)
+        .forEach(idx => this.gamePlay.selectCell(idx, 'green'));
+    }
+
+    this.getPossibleAttacks(position, this.selectedCharacter.attackDistance)
+      .forEach(idx => this.gamePlay.selectCell(idx, 'red'));
+  }
+
+  performAttack(attacker, target, targetIndex, attackType) {
+    const cost = attackType === 'attack' ? 1 : 2;
+    if (attacker.currentActionPoints < cost) return;
+
+    const attack = attacker.actions[attackType]();
+    const isCritical = Math.random() < (attackType === 'attack' ? 0.15 : 0.1);
+    const damage = Math.round(attack.damage * (isCritical ? 1.5 : 1));
+
+    this.gamePlay.showDamage(
+      targetIndex, 
+      isCritical ? `Крит: ${damage}!` : damage
+    );
+
+    target.health -= damage;
+    attacker.currentActionPoints -= cost;
+
+    this.gamePlay.hideActionMenu();
+    this.redrawTeams();
+    this.updateAvailableActions();
+
+    if (target.health <= 0) {
+      this.positionedEnemyCharacters = this.positionedEnemyCharacters.filter(
+        pc => pc.character !== target
+      );
+      this.gamePlay.showMessage(`${target.type} побежден!`);
+    }
+
+    if (this.checkTurnEnd()) {
+      this.switchTurn();
     }
   }
 
-  onCellEnter(index) {
-    const character = this.gamePlay.findCharacterByPosition(
-      [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters],
-      index
+  performDefence(character) {
+    const defenceBonus = character.currentActionPoints * 0.5;
+    character.defence += defenceBonus;
+    character.currentActionPoints = 0;
+
+    this.gamePlay.showMessage(
+      `${character.type} усилил защиту на ${defenceBonus.toFixed(1)}!`
     );
+    this.gamePlay.hideActionMenu();
+    this.redrawTeams();
+    this.updateAvailableActions();
 
-    if (character) {
-      this.gamePlay.setCursor('pointer');
-
-      if (character !== this.selectedCharacter) {
-        this.gamePlay.selectCell(index, 'green');
-      }
-
-      const tooltipContent = `
-        <div class="character-type">${character.type.toUpperCase()}</div>
-        <div>🎖${character.level} ❤${character.health} 
-        ⚔${character.attack} 🛡${character.defence}</div>
-      `;
-
-      this.gamePlay.showCellTooltip(tooltipContent, index);
-    } else {
-      this.gamePlay.setCursor('auto');
-      this.gamePlay.hideCellTooltip(index);
+    if (this.checkTurnEnd()) {
+      this.switchTurn();
     }
   }
 
-  onCellLeave(index) {
-    const character = this.gamePlay.findCharacterByPosition(
-      [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters],
-      index
-    );
+  updateActionPointsDisplay() {
+    const actionPointsElement = document.getElementById('action-points');
+    if (!actionPointsElement) return;
 
-    if (character && character !== this.selectedCharacter) {
-      this.gamePlay.deselectCell(index);
-    }
+    let html = '<h3>Очки действий:</h3>';
+    this.playerTeam.characters.forEach(char => {
+      html += `<p>${char.type}: ${char.currentActionPoints}/${char.actionPoints}</p>`;
+    });
 
-    this.gamePlay.hideCellTooltip(index);
-    this.gamePlay.setCursor('auto');
+    actionPointsElement.innerHTML = html;
+  }
+
+  checkTurnEnd() {
+    return this.playerTeam.characters.every(c => c.currentActionPoints <= 0);
   }
 
   switchTurn() {
-    this.gameState.currentTurn =
-      this.gameState.currentTurn === 'player' ? 'enemy' : 'player';
+    this.gamePlay.deselectAllCells();
+    this.gamePlay.hideActionMenu();
+
+    if (this.gameState.currentTurn === 'player') {
+      this.enemyTeam.characters.forEach(c => c.resetActionPoints());
+    } else {
+      this.playerTeam.characters.forEach(c => c.resetActionPoints());
+    }
+
+    this.gameState.currentTurn = this.gameState.currentTurn === 'player' ? 'enemy' : 'player';
     this.updateTurnIndicator();
 
     if (this.gameState.currentTurn === 'enemy') {
       this.makeEnemyMove();
     }
-  }
-
-  getPossibleMoves(position, moveDistance) {
-    // Возвращаем массив индексов доступных клеток для перемещения
-    const boardSize = this.gamePlay.boardSize;
-    const [row, col] = [Math.floor(position / boardSize), position % boardSize];
-    const moves = [];
-
-    for (
-      let r = Math.max(0, row - moveDistance);
-      r <= Math.min(boardSize - 1, row + moveDistance);
-      r++
-    ) {
-      for (
-        let c = Math.max(0, col - moveDistance);
-        c <= Math.min(boardSize - 1, col + moveDistance);
-        c++
-      ) {
-        const idx = r * boardSize + c;
-        if (idx !== position) {
-          moves.push(idx);
-        }
-      }
-    }
-
-    return moves.filter((idx) => {
-      // Проверяем, что клетка не занята другим персонажем
-      const allChars = [
-        ...this.positionedPlayerCharacters,
-        ...this.positionedEnemyCharacters,
-      ];
-      return !allChars.some((pc) => pc.position === idx);
-    });
-  }
-
-  getPossibleAttacks(position, attackDistance) {
-    // Аналогично getPossibleMoves, но ищет вражеских персонажей
-    const boardSize = this.gamePlay.boardSize;
-    const [row, col] = [Math.floor(position / boardSize), position % boardSize];
-    const attacks = [];
-
-    for (
-      let r = Math.max(0, row - attackDistance);
-      r <= Math.min(boardSize - 1, row + attackDistance);
-      r++
-    ) {
-      for (
-        let c = Math.max(0, col - attackDistance);
-        c <= Math.min(boardSize - 1, col + attackDistance);
-        c++
-      ) {
-        const idx = r * boardSize + c;
-        if (idx !== position) {
-          attacks.push(idx);
-        }
-      }
-    }
-
-    const allChars = [
-      ...this.positionedPlayerCharacters,
-      ...this.positionedEnemyCharacters,
-    ];
-    return attacks.filter((idx) => {
-      const target = allChars.find((pc) => pc.position === idx);
-      return target && this.enemyTeam.characters.includes(target.character);
-    });
-  }
-
-  makeEnemyMove() {
-    const aliveEnemies = this.enemyTeam.characters.filter((c) => c.health > 0);
-    if (aliveEnemies.length === 0) {
-      this.gamePlay.showMessage('Вы победили!');
-      return;
-    }
-
-    const enemyCharacter =
-      aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
-    const enemyPos = this.gamePlay.findPositionByCharacter(
-      this.positionedEnemyCharacters,
-      enemyCharacter
-    );
-
-    const alivePlayers = this.playerTeam.characters.filter((c) => c.health > 0);
-    if (alivePlayers.length === 0) {
-      this.gamePlay.showMessage('Вы проиграли!');
-      return;
-    }
-
-    const targetCharacter =
-      alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
-    const targetPos = this.gamePlay.findPositionByCharacter(
-      this.positionedPlayerCharacters,
-      targetCharacter
-    );
-
-    setTimeout(() => {
-      this.gamePlay.selectCell(enemyPos, 'red');
-      this.gamePlay.selectCell(targetPos, 'red');
-
-      const damage = Math.max(
-        0,
-        enemyCharacter.attack - targetCharacter.defence * 0.1
-      );
-      targetCharacter.health -= damage;
-
-      this.gamePlay.showDamage(targetPos, Math.round(damage)).then(() => {
-        this.redrawTeams();
-
-        if (targetCharacter.health <= 0) {
-          this.gamePlay.showMessage(`${targetCharacter.type} побежден!`);
-        }
-
-        this.gamePlay.deselectCell(enemyPos);
-        this.gamePlay.deselectCell(targetPos);
-
-        this.switchTurn();
-      });
-    }, 1000);
   }
 }
