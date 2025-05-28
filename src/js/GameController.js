@@ -8,6 +8,7 @@ import Magician from './characters/Magician.js';
 import Daemon from './characters/Daemon.js';
 import Undead from './characters/Undead.js';
 import Vampire from './characters/Vampire.js';
+import Zombie from './characters/Zombie.js';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
@@ -32,6 +33,10 @@ export default class GameController {
 
     this.movingCharacter = null;
     this.movingPath = [];
+
+    this.deadCharacters = [];
+    this.resurrectionCount = 0;
+    this.maxResurrections = 2;
   }
 
   init() {
@@ -130,27 +135,16 @@ export default class GameController {
   }
 
   onCellClick(index) {
-    const allChars = [
-      ...this.positionedPlayerCharacters,
-      ...this.positionedEnemyCharacters,
-    ];
+    const allChars = this.getAllCharacters();
     const clickedChar = this.gamePlay.findCharacterByPosition(allChars, index);
 
-    if (clickedChar && this.playerTeam.characters.includes(clickedChar)) {
-      this.selectCharacter(clickedChar, index);
-      return;
-    }
-
-    if (
-      this.isCharacterSelected &&
-      clickedChar &&
-      this.enemyTeam.characters.includes(clickedChar)
-    ) {
-      this.showAttackMenu(this.selectedCharacter, clickedChar, index);
-      return;
-    }
-
-    if (this.isCharacterSelected && !clickedChar) {
+    if (clickedChar) {
+      if (this.playerTeam.characters.includes(clickedChar)) {
+        this.selectCharacter(clickedChar, index);
+      } else if (this.isCharacterSelected) {
+        this.showAttackMenu(this.selectedCharacter, clickedChar, index);
+      }
+    } else if (this.isCharacterSelected) {
       this.moveCharacter(this.selectedCharacter, index);
     }
   }
@@ -182,6 +176,14 @@ export default class GameController {
     this.gamePlay.setCursor('default');
   }
 
+  getAllCharacters() {
+    return [
+      ...this.positionedPlayerCharacters,
+      ...this.positionedEnemyCharacters,
+      ...this.deadCharacters
+    ];
+  }
+
   selectCharacter(character, position) {
     this.gamePlay.deselectAllCells();
     this.gamePlay.hideActionMenu();
@@ -203,45 +205,44 @@ export default class GameController {
   }
 
   async moveCharacter(character, toIndex) {
-    if (!this.isCharacterSelected) return false;
-
-    const fromPos = this.indexToPosition(this.selectedCellIndex);
-    const toPos = this.indexToPosition(toIndex);
-  
-    const dx = Math.abs(fromPos.x - toPos.x);
-    const dy = Math.abs(fromPos.y - toPos.y);
+    const fromIndex = this.selectedCellIndex;
+    const path = this.calculatePath(fromIndex, toIndex, character.moveDistance);
     
-    const path = this.calculatePath(this.selectedCellIndex, toIndex, character.moveDistance);
     if (!path || !path.includes(toIndex)) {
-      this.gamePlay.showMessage("Вы не можете двигаться в этом направлении. Путь перекрыт другим персонажем!");
+      this.gamePlay.showMessage("Невозможно переместиться!");
       return false;
     }
-  
-    let moveCost = 0;
-    const isDiagonal = dx > 0 && dy > 0;
-    
-    if (isDiagonal) {
-      moveCost = dx * (character.moveCost?.diagonal || 2); 
-    } else {
-      moveCost = (dx + dy) * (character.moveCost?.straight || 1); 
-    }
-  
+
+    const moveCost = this.calculateMoveCost(fromIndex, toIndex, character);
     if (moveCost > character.currentActionPoints) {
       this.gamePlay.showError('Недостаточно очков действий!');
       return false;
     }
 
+    // Анимация перемещения
+    await this.animateMovement(character, path);
+    
     character.currentActionPoints -= moveCost;
     this.selectedCellIndex = toIndex;
-
+    this.updateCharacterPosition(character, toIndex);
+    
     this.redrawTeams();
     this.updateAvailableActions();
 
     if (this.checkTurnEnd()) {
       this.switchTurn();
     }
-
     return true;
+  }
+
+  calculateMoveCost(fromIndex, toIndex, character) {
+    const fromPos = this.indexToPosition(fromIndex);
+    const toPos = this.indexToPosition(toIndex);
+    const dx = Math.abs(fromPos.x - toPos.x);
+    const dy = Math.abs(fromPos.y - toPos.y);
+    const isDiagonal = dx > 0 && dy > 0;
+    
+    return isDiagonal ? character.moveCost.diagonal : character.moveCost.straight;
   }
 
   calculatePath(fromIndex, toIndex, maxDistance) {
@@ -280,29 +281,30 @@ export default class GameController {
     return path;
   }
 
-  async animateMovement() {
-    if (!this.movingPath.length) return;
-
-    const character = this.movingCharacter;
+  async animateMovement(character, path) {
     const originalType = character.type;
     character.type = 'generic';
-
-    for (let i = 1; i < this.movingPath.length; i++) {
-      const toIndex = this.movingPath[i];
-      this.positionedPlayerCharacters = this.positionedPlayerCharacters.map(
-        (pc) =>
-          pc.character === character
-            ? new PositionedCharacter(character, toIndex)
-            : pc
-      );
-
+    
+    for (let i = 1; i < path.length; i++) {
+      const toIndex = path[i];
+      this.updateCharacterPosition(character, toIndex);
       this.redrawTeams();
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
-
+    
     character.type = originalType;
-    this.movingCharacter = null;
-    this.movingPath = [];
+  }
+
+  updateCharacterPosition(character, newPosition) {
+    if (this.playerTeam.characters.includes(character)) {
+      this.positionedPlayerCharacters = this.positionedPlayerCharacters.map(pc => 
+        pc.character === character ? new PositionedCharacter(character, newPosition) : pc
+      );
+    } else {
+      this.positionedEnemyCharacters = this.positionedEnemyCharacters.map(pc => 
+        pc.character === character ? new PositionedCharacter(character, newPosition) : pc
+      );
+    }
   }
 
   showAttackMenu(attacker, target, targetIndex) {
@@ -462,15 +464,101 @@ export default class GameController {
     this.updateAvailableActions();
   
     if (target.health <= 0) {
-      this.positionedEnemyCharacters = this.positionedEnemyCharacters.filter(
-        (pc) => pc.character !== target
-      );
-      this.gamePlay.showMessage(`${target.type} побежден!`);
+      this.handleCharacterDeath(target, attacker);
     }
   
     if (this.checkTurnEnd()) {
       this.switchTurn();
     }
+  }
+
+  handleCharacterDeath(character, killer) {
+    if (character.team === 'player') {
+      // Логика для смерти персонажа игрока
+      if (killer.type === 'daemon') {
+        this.turnIntoZombie(character);
+      } else if (killer.type === 'vampire' && Math.random() < 0.3) {
+        this.turnIntoVampire(character);
+      } else {
+        this.startResurrectionTimer(character);
+      }
+    } else {
+      // Логика для смерти врага
+      this.removeEnemy(character);
+    }
+  }
+
+  startResurrectionTimer(character) {
+    character.die();
+    this.deadCharacters.push(
+      new PositionedCharacter(character, character.position)
+    );
+    this.gamePlay.showMessage(`${character.type} пал. У вас есть 3 хода, чтобы его воскресить!`);
+  }
+
+  turnIntoZombie(character) {
+    const zombie = new Zombie(character.level);
+    zombie.position = character.position;
+    this.positionedEnemyCharacters.push(
+      new PositionedCharacter(zombie, zombie.position)
+    );
+    this.removePlayerCharacter(character);
+  }
+
+  turnIntoVampire(character) {
+    const vampire = new Vampire(character.level);
+    vampire.position = character.position;
+    this.positionedEnemyCharacters.push(
+      new PositionedCharacter(vampire, vampire.position)
+    );
+    this.removePlayerCharacter(character);
+  }
+
+  resurrectCharacter(magician, deadCharacter) {
+    if (magician.type !== 'magician' || this.resurrectionCount >= this.maxResurrections) {
+      return false;
+    }
+
+    const distance = magician.calculateDistance(
+      this.indexToPosition(magician.position),
+      this.indexToPosition(deadCharacter.position)
+    );
+
+    if (distance > magician.attackDistance) {
+      this.gamePlay.showError('Слишком далеко для воскрешения!');
+      return false;
+    }
+
+    if (magician.currentActionPoints < 2) {
+      this.gamePlay.showError('Недостаточно очков действий!');
+      return false;
+    }
+
+    deadCharacter.resurrect();
+    magician.currentActionPoints -= 2;
+    this.resurrectionCount++;
+    
+    this.deadCharacters = this.deadCharacters.filter(
+      pc => pc.character !== deadCharacter
+    );
+    
+    this.positionedPlayerCharacters.push(
+      new PositionedCharacter(deadCharacter, deadCharacter.position)
+    );
+    
+    this.redrawTeams();
+    this.updateAvailableActions();
+    return true;
+  }
+
+  updateDeathTimers() {
+    this.deadCharacters = this.deadCharacters.filter(pc => {
+      const stillDead = pc.character.updateDeathTimer();
+      if (!stillDead) {
+        this.gamePlay.showMessage(`${pc.character.type} окончательно умер!`);
+      }
+      return stillDead;
+    });
   }
 
   performDefence(character) {

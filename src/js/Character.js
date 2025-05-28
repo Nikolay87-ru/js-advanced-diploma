@@ -1,31 +1,25 @@
-/**
- * Базовый класс, от которого наследуются классы персонажей
- * @property level - уровень персонажа, от 1 до 4
- * @property attack - показатель атаки
- * @property defence - показатель защиты
- * @property health - здоровье персонажа
- * @property type - строка с одним из допустимых значений:
- * swordsman
- * bowman
- * magician
- * daemon
- * undead
- * vampire
- */
 export default class Character {
   constructor(level, type = "generic") {
     this.level = level;
     this.health = 100;
+    this.maxHealth = 100;
     this.type = type;
     this.moveDistance = 1;
     this.attackDistance = 1;
-    this.actionPoints = 4; // Очки действий на ход
+    this.actionPoints = 4;
     this.currentActionPoints = 4;
+    this.team = 'player'; 
+    this.isDead = false;
+    this.deathTimer = 0;
+    this.resurrectionCount = 0;
+    
     this.actions = {
       attack: () => ({ damage: 10, cost: 1 }),
       hardAttack: () => ({ damage: 15, cost: 2 }),
-      defence: () => ({ defence: this.defence * 2, cost: this.currentActionPoints })
+      defence: () => ({ defence: this.defence * 2, cost: this.currentActionPoints }),
+      resurrect: () => ({ health: this.maxHealth / 2, cost: 2 })
     };
+    
     this.moveCost = {
       straight: 1,
       diagonal: 1 
@@ -54,5 +48,40 @@ export default class Character {
 
   resetActionPoints() {
     this.currentActionPoints = this.actionPoints;
+  }
+
+  takeDamage(damage) {
+    this.health -= damage;
+    if (this.health <= 0) {
+      this.die();
+    }
+    return this.health;
+  }
+
+  die() {
+    this.isDead = true;
+    this.deathTimer = 3;
+    this.health = 0;
+  }
+
+  resurrect() {
+    if (this.isDead && this.deathTimer > 0) {
+      this.isDead = false;
+      this.health = this.maxHealth / 2;
+      this.deathTimer = 0;
+      return true;
+    }
+    return false;
+  }
+
+  updateDeathTimer() {
+    if (this.isDead && this.deathTimer > 0) {
+      this.deathTimer--;
+      if (this.deathTimer === 0) {
+        return false; 
+      }
+      return true; 
+    }
+    return false;
   }
 }

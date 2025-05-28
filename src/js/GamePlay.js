@@ -70,10 +70,11 @@ export default class GamePlay {
     positions.forEach(position => {
       const cellEl = this.boardEl.children[position.position];
       const charEl = document.createElement('div');
-      charEl.classList.add('character', position.character.type);
-
-      if (this.controller?.movingCharacter === position.character) {
-        charEl.classList.add('moving');
+      
+      if (position.character.isDead) {
+        charEl.classList.add('character', 'dead');
+      } else {
+        charEl.classList.add('character', position.character.type);
       }
 
       const healthEl = document.createElement('div');
@@ -209,6 +210,7 @@ export default class GamePlay {
     
     const menu = document.createElement('div');
     menu.className = `action-menu ${type}-menu`;
+    menu.style.zIndex = '1002'; 
     
     items.forEach(item => {
       const button = document.createElement('button');
@@ -223,6 +225,17 @@ export default class GamePlay {
     
     const cell = this.cells[index];
     cell.appendChild(menu);
+    
+    if (type === 'attack') {
+      menu.style.left = '100%';
+      menu.style.top = '50%';
+      menu.style.transform = 'translateY(-50%)';
+    }
+    else if (type === 'defence') {
+      menu.style.left = '50%';
+      menu.style.bottom = '-50%';
+      menu.style.transform = 'translateX(-50%)';
+    }
   }
 
   showAttackRange(character, positionedCharacters) {
