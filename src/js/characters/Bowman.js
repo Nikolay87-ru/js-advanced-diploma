@@ -6,8 +6,8 @@ export default class Bowman extends Character {
     this.attack = '15-25';
     this.defence = 25;
     this.type = 'bowman';
-    this.moveDistance = 2;
-    this.attackDistance = 4;
+    this.moveDistance = 3;
+    this.attackDistance = 3;
     
     this.actions = {
       attack: () => {
@@ -31,6 +31,11 @@ export default class Bowman extends Character {
       defence: () => ({
         defence: this.defence * 2
       })
+    };
+
+    this.moveCost = {
+      straight: 1,
+      diagonal: 2
     };
   }
 }

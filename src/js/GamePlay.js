@@ -132,6 +132,7 @@ export default class GamePlay {
   }
 
   onCellLeave(event) {
+    this.setCursor('default');
     event.preventDefault();
     const index = this.cells.indexOf(event.currentTarget);
     this.cellLeaveListeners.forEach(o => o.call(null, index));
@@ -224,23 +225,95 @@ export default class GamePlay {
     cell.appendChild(menu);
   }
 
-  showDamage(index, damage) {
+  showAttackRange(character, positionedCharacters) {
+    this.deselectAllCells();
+    
+    const position = this.findPositionByCharacter(positionedCharacters, character);
+    if (position === null) return;
+  
+    const enemies = positionedCharacters.filter(pc => {
+      const isEnemy = !positionedCharacters.some(
+        playerPc => playerPc.character === character && playerPc.character === pc.character
+      );
+      return isEnemy;
+    });
+  
+    enemies.forEach(enemy => {
+      const distance = character.calculateDistance(
+        { x: position % this.boardSize, y: Math.floor(position / this.boardSize) },
+        { x: enemy.position % this.boardSize, y: Math.floor(enemy.position / this.boardSize) }
+      );
+      
+      if (distance <= character.attackDistance) {
+        this.selectCell(enemy.position, 'red', 'dashed');
+      }
+    });
+  }
+
+  showDamage(index, damage, isCritical = false) {
     return new Promise(resolve => {
       const cell = this.cells[index];
-      const damageEl = document.createElement('span');
-      damageEl.textContent = damage;
-      damageEl.classList.add('damage');
+      const damageEl = document.createElement('div');
       
-      if (typeof damage === 'string' && damage.includes('Критический')) {
+      damageEl.className = 'damage';
+      damageEl.textContent = isCritical ? `Критический урон ${damage}!` : damage;
+      
+      if (isCritical) {
         damageEl.classList.add('critical');
+        damageEl.style.color = '#ff0';
+        damageEl.style.fontSize = '1.2em';
+        damageEl.style.animation = 'criticalHit 0.5s ease-out';
+      } else {
+        damageEl.style.color = '#f00';
       }
-      
+  
+      damageEl.style.position = 'absolute';
+      damageEl.style.top = '-20px';
+      damageEl.style.left = '50%';
+      damageEl.style.transform = 'translateX(-50%)';
+      damageEl.style.zIndex = '1001';
+  
       cell.appendChild(damageEl);
+      
       damageEl.addEventListener('animationend', () => {
         cell.removeChild(damageEl);
         resolve();
       });
     });
+  }
+
+  showCellTooltip(message, index) {
+    const cell = this.cells[index];
+    if (!cell) return;
+  
+    const oldTooltip = cell.querySelector('.custom-tooltip');
+    if (oldTooltip) {
+      cell.removeChild(oldTooltip);
+    }
+  
+    const tooltip = document.createElement('div');
+    tooltip.className = 'custom-tooltip';
+    
+    tooltip.innerHTML = `
+      <span class="character-type">${message}</span>
+    `;
+  
+    tooltip.style.position = 'absolute';
+    tooltip.style.bottom = '100%';
+    tooltip.style.left = '50%';
+    tooltip.style.transform = 'translateX(-50%)';
+    tooltip.style.zIndex = '1000';
+  
+    cell.appendChild(tooltip);
+    cell.tooltip = tooltip; 
+  }
+  
+  removeCellTooltip(index) {
+    const cell = this.cells[index];
+    if (!cell || !cell.tooltip) return;
+    
+    cell.removeChild(cell.tooltip);
+    delete cell.tooltip;
   }
 
   checkBinding() {

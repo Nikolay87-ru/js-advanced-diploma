@@ -4,9 +4,9 @@ export default class Zombie extends Character {
   constructor(level) {
     super(level);
     this.attack = '10-15';
-    this.defence = 5;
+    this.defence = 10;
     this.type = 'zombie';
-    this.moveDistance = 1;
+    this.moveDistance = 2;
     this.attackDistance = 1;
 
     this.actions = {

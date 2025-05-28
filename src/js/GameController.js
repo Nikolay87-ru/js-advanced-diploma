@@ -40,6 +40,11 @@ export default class GameController {
       this.generateTeams();
       this.redrawTeams();
       this.setupEventListeners();
+
+      this.gamePlay.setCursor = (cursorType) => {
+        this.gamePlay.boardEl.style.cursor = cursorType;
+      };
+      this.gamePlay.setCursor('default');
     } catch (error) {
       this.gamePlay.showError(error.message);
     }
@@ -54,7 +59,11 @@ export default class GameController {
 
   generateTeams() {
     const actualCount = Math.min(this.characterCount, this.maxCharacters);
-    this.playerTeam = generateTeam(this.playerTypes, this.maxLevel, actualCount);
+    this.playerTeam = generateTeam(
+      this.playerTypes,
+      this.maxLevel,
+      actualCount
+    );
     this.enemyTeam = generateTeam(this.enemyTypes, this.maxLevel, actualCount);
 
     this.positionedPlayerCharacters = this.positionCharacters(
@@ -83,7 +92,10 @@ export default class GameController {
         )
         .filter((pos) => !usedPositions.has(pos));
 
-      const position = availablePositions[Math.floor(Math.random() * availablePositions.length)];
+      const position =
+        availablePositions[
+          Math.floor(Math.random() * availablePositions.length)
+        ];
       usedPositions.add(position);
 
       return new PositionedCharacter(character, position);
@@ -118,7 +130,10 @@ export default class GameController {
   }
 
   onCellClick(index) {
-    const allChars = [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters];
+    const allChars = [
+      ...this.positionedPlayerCharacters,
+      ...this.positionedEnemyCharacters,
+    ];
     const clickedChar = this.gamePlay.findCharacterByPosition(allChars, index);
 
     if (clickedChar && this.playerTeam.characters.includes(clickedChar)) {
@@ -126,7 +141,11 @@ export default class GameController {
       return;
     }
 
-    if (this.isCharacterSelected && clickedChar && this.enemyTeam.characters.includes(clickedChar)) {
+    if (
+      this.isCharacterSelected &&
+      clickedChar &&
+      this.enemyTeam.characters.includes(clickedChar)
+    ) {
       this.showAttackMenu(this.selectedCharacter, clickedChar, index);
       return;
     }
@@ -136,6 +155,33 @@ export default class GameController {
     }
   }
 
+  onCellEnter(index) {
+    const allChars = [
+      ...this.positionedPlayerCharacters,
+      ...this.positionedEnemyCharacters,
+    ];
+    const character = allChars.find((pc) => pc.position === index)?.character;
+  
+    if (character) {
+      this.gamePlay.setCursor('pointer');
+      this.gamePlay.showCellTooltip(
+        `${character.type} (🎖${character.level} ⚔${character.attack} 🛡${character.defence} ❤${character.health})`,
+        index
+      );
+  
+      if (this.selectedCharacter) {
+        this.gamePlay.showAttackRange(this.selectedCharacter, allChars);
+      }
+    } else {
+      this.gamePlay.setCursor('default');
+    }
+  }
+
+  onCellLeave(index) {
+    this.gamePlay.removeCellTooltip(index);
+    this.gamePlay.setCursor('default');
+  }
+
   selectCharacter(character, position) {
     this.gamePlay.deselectAllCells();
     this.gamePlay.hideActionMenu();
@@ -143,7 +189,7 @@ export default class GameController {
     this.selectedCharacter = character;
     this.selectedCellIndex = position;
     this.isCharacterSelected = true;
-    
+
     this.gamePlay.selectCell(position, 'yellow');
     this.updateAvailableActions();
   }
@@ -159,24 +205,33 @@ export default class GameController {
   async moveCharacter(character, toIndex) {
     if (!this.isCharacterSelected) return false;
 
-    const path = this.calculatePath(
-      this.selectedCellIndex, 
-      toIndex,
-      Math.min(character.moveDistance, character.currentActionPoints)
-    );
+    const fromPos = this.indexToPosition(this.selectedCellIndex);
+    const toPos = this.indexToPosition(toIndex);
+  
+    const dx = Math.abs(fromPos.x - toPos.x);
+    const dy = Math.abs(fromPos.y - toPos.y);
+    
+    const path = this.calculatePath(this.selectedCellIndex, toIndex, character.moveDistance);
+    if (!path || !path.includes(toIndex)) {
+      this.gamePlay.showMessage("Вы не можете двигаться в этом направлении. Путь перекрыт другим персонажем!");
+      return false;
+    }
+  
+    let moveCost = 0;
+    const isDiagonal = dx > 0 && dy > 0;
+    
+    if (isDiagonal) {
+      moveCost = dx * (character.moveCost?.diagonal || 2); 
+    } else {
+      moveCost = (dx + dy) * (character.moveCost?.straight || 1); 
+    }
+  
+    if (moveCost > character.currentActionPoints) {
+      this.gamePlay.showError('Недостаточно очков действий!');
+      return false;
+    }
 
-    if (!path?.length) return false;
-
-    this.movingCharacter = character;
-    this.movingPath = path;
-
-    await this.animateMovement();
-
-    this.positionedPlayerCharacters = this.positionedPlayerCharacters.map(pc => 
-      pc.character === character ? new PositionedCharacter(character, toIndex) : pc
-    );
-
-    character.currentActionPoints -= (path.length - 1);
+    character.currentActionPoints -= moveCost;
     this.selectedCellIndex = toIndex;
 
     this.redrawTeams();
@@ -203,14 +258,20 @@ export default class GameController {
     while (currentRow !== toRow || currentCol !== toCol) {
       const rowStep = currentRow < toRow ? 1 : currentRow > toRow ? -1 : 0;
       const colStep = currentCol < toCol ? 1 : currentCol > toCol ? -1 : 0;
-      
+
       currentRow += rowStep;
       currentCol += colStep;
 
       const nextIndex = currentRow * boardSize + currentCol;
-      const allChars = [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters];
-      const charAtPos = this.gamePlay.findCharacterByPosition(allChars, nextIndex);
-      
+      const allChars = [
+        ...this.positionedPlayerCharacters,
+        ...this.positionedEnemyCharacters,
+      ];
+      const charAtPos = this.gamePlay.findCharacterByPosition(
+        allChars,
+        nextIndex
+      );
+
       if (charAtPos) break;
       path.push(nextIndex);
       if (path.length > maxDistance) break;
@@ -228,12 +289,15 @@ export default class GameController {
 
     for (let i = 1; i < this.movingPath.length; i++) {
       const toIndex = this.movingPath[i];
-      this.positionedPlayerCharacters = this.positionedPlayerCharacters.map(pc => 
-        pc.character === character ? new PositionedCharacter(character, toIndex) : pc
+      this.positionedPlayerCharacters = this.positionedPlayerCharacters.map(
+        (pc) =>
+          pc.character === character
+            ? new PositionedCharacter(character, toIndex)
+            : pc
       );
 
       this.redrawTeams();
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
 
     character.type = originalType;
@@ -243,32 +307,36 @@ export default class GameController {
 
   showAttackMenu(attacker, target, targetIndex) {
     const menuItems = [];
-    
+
     if (attacker.currentActionPoints >= 1) {
       menuItems.push({
         text: `Атака (1 очко)`,
-        action: () => this.performAttack(attacker, target, targetIndex, 'attack')
+        action: () =>
+          this.performAttack(attacker, target, targetIndex, 'attack'),
       });
     }
-    
+
     if (attacker.currentActionPoints >= 2) {
       menuItems.push({
         text: `Сильная атака (2 очка)`,
-        action: () => this.performAttack(attacker, target, targetIndex, 'hardAttack')
+        action: () =>
+          this.performAttack(attacker, target, targetIndex, 'hardAttack'),
       });
     }
-    
+
     this.gamePlay.showActionMenu(targetIndex, menuItems, 'attack');
   }
 
   showDefenceButton(position) {
     if (!this.selectedCharacter?.currentActionPoints) return;
-    
-    const menuItems = [{
-      text: `Защита (${this.selectedCharacter.currentActionPoints} очков)`,
-      action: () => this.performDefence(this.selectedCharacter)
-    }];
-    
+
+    const menuItems = [
+      {
+        text: `Защита (${this.selectedCharacter.currentActionPoints} очков)`,
+        action: () => this.performDefence(this.selectedCharacter),
+      },
+    ];
+
     this.gamePlay.showActionMenu(position, menuItems, 'defence');
   }
 
@@ -283,7 +351,10 @@ export default class GameController {
         const colDiff = Math.abs((position % boardSize) - col);
 
         if (rowDiff + colDiff <= distance && idx !== position) {
-          const allChars = [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters];
+          const allChars = [
+            ...this.positionedPlayerCharacters,
+            ...this.positionedEnemyCharacters,
+          ];
           if (!this.gamePlay.findCharacterByPosition(allChars, idx)) {
             moves.push(idx);
           }
@@ -297,9 +368,10 @@ export default class GameController {
   getPossibleAttacks(position, distance) {
     const boardSize = this.gamePlay.boardSize;
     const attacks = [];
-    const currentTeam = this.gameState.currentTurn === 'player' 
-      ? this.positionedEnemyCharacters 
-      : this.positionedPlayerCharacters;
+    const currentTeam =
+      this.gameState.currentTurn === 'player'
+        ? this.positionedEnemyCharacters
+        : this.positionedPlayerCharacters;
 
     for (let row = 0; row < boardSize; row++) {
       for (let col = 0; col < boardSize; col++) {
@@ -336,41 +408,66 @@ export default class GameController {
     );
 
     if (maxDistance > 0) {
-      this.getPossibleMoves(position, maxDistance)
-        .forEach(idx => this.gamePlay.selectCell(idx, 'green'));
+      this.getPossibleMoves(position, maxDistance).forEach((idx) =>
+        this.gamePlay.selectCell(idx, 'green')
+      );
     }
 
-    this.getPossibleAttacks(position, this.selectedCharacter.attackDistance)
-      .forEach(idx => this.gamePlay.selectCell(idx, 'red'));
+    this.getPossibleAttacks(
+      position,
+      this.selectedCharacter.attackDistance
+    ).forEach((idx) => this.gamePlay.selectCell(idx, 'red'));
   }
 
   performAttack(attacker, target, targetIndex, attackType) {
+    const attackerPos = this.indexToPosition(
+      this.gamePlay.findPositionByCharacter(
+        this.positionedPlayerCharacters,
+        attacker
+      )
+    );
+    const targetPos = this.indexToPosition(targetIndex);
+  
+    const distance = Math.max(
+      Math.abs(attackerPos.x - targetPos.x),
+      Math.abs(attackerPos.y - targetPos.y)
+    );
+  
+    if (distance > attacker.attackDistance) {
+      this.gamePlay.showError('Враг слишком далеко!');
+      return;
+    }
+  
     const cost = attackType === 'attack' ? 1 : 2;
-    if (attacker.currentActionPoints < cost) return;
-
+    if (attacker.currentActionPoints < cost) {
+      this.gamePlay.showError('Недостаточно очков действий!');
+      return;
+    }
+  
     const attack = attacker.actions[attackType]();
     const isCritical = Math.random() < (attackType === 'attack' ? 0.15 : 0.1);
     const damage = Math.round(attack.damage * (isCritical ? 1.5 : 1));
-
+  
     this.gamePlay.showDamage(
-      targetIndex, 
-      isCritical ? `Крит: ${damage}!` : damage
+      targetIndex,
+      damage,
+      isCritical
     );
-
+  
     target.health -= damage;
     attacker.currentActionPoints -= cost;
-
+  
     this.gamePlay.hideActionMenu();
     this.redrawTeams();
     this.updateAvailableActions();
-
+  
     if (target.health <= 0) {
       this.positionedEnemyCharacters = this.positionedEnemyCharacters.filter(
-        pc => pc.character !== target
+        (pc) => pc.character !== target
       );
       this.gamePlay.showMessage(`${target.type} побежден!`);
     }
-
+  
     if (this.checkTurnEnd()) {
       this.switchTurn();
     }
@@ -393,12 +490,20 @@ export default class GameController {
     }
   }
 
+  indexToPosition(index) {
+    const boardSize = this.gamePlay.boardSize;
+    return {
+      x: index % boardSize,
+      y: Math.floor(index / boardSize),
+    };
+  }
+
   updateActionPointsDisplay() {
     const actionPointsElement = document.getElementById('action-points');
     if (!actionPointsElement) return;
 
     let html = '<h3>Очки действий:</h3>';
-    this.playerTeam.characters.forEach(char => {
+    this.playerTeam.characters.forEach((char) => {
       html += `<p>${char.type}: ${char.currentActionPoints}/${char.actionPoints}</p>`;
     });
 
@@ -406,7 +511,7 @@ export default class GameController {
   }
 
   checkTurnEnd() {
-    return this.playerTeam.characters.every(c => c.currentActionPoints <= 0);
+    return this.playerTeam.characters.every((c) => c.currentActionPoints <= 0);
   }
 
   switchTurn() {
@@ -414,12 +519,13 @@ export default class GameController {
     this.gamePlay.hideActionMenu();
 
     if (this.gameState.currentTurn === 'player') {
-      this.enemyTeam.characters.forEach(c => c.resetActionPoints());
+      this.enemyTeam.characters.forEach((c) => c.resetActionPoints());
     } else {
-      this.playerTeam.characters.forEach(c => c.resetActionPoints());
+      this.playerTeam.characters.forEach((c) => c.resetActionPoints());
     }
 
-    this.gameState.currentTurn = this.gameState.currentTurn === 'player' ? 'enemy' : 'player';
+    this.gameState.currentTurn =
+      this.gameState.currentTurn === 'player' ? 'enemy' : 'player';
     this.updateTurnIndicator();
 
     if (this.gameState.currentTurn === 'enemy') {
