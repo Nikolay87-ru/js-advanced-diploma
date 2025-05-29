@@ -1,7 +1,10 @@
 export default class Character {
   constructor(level, type = "generic") {
+    if (typeof level !== 'number' || level < 1) {
+      throw new Error('Level must be a positive number');
+    }
     this.level = level;
-    this.health = 100;
+    this.health = 50;
     this.maxHealth = 100;
     this.type = type;
     this.moveDistance = 1;
@@ -11,7 +14,6 @@ export default class Character {
     this.team = 'player'; 
     this.isDead = false;
     this.deathTimer = 0;
-    this.resurrectionCount = 0;
     
     this.actions = {
       attack: () => ({ damage: 10, cost: 1 }),
@@ -60,28 +62,7 @@ export default class Character {
 
   die() {
     this.isDead = true;
-    this.deathTimer = 3;
     this.health = 0;
-  }
-
-  resurrect() {
-    if (this.isDead && this.deathTimer > 0) {
-      this.isDead = false;
-      this.health = this.maxHealth / 2;
-      this.deathTimer = 0;
-      return true;
-    }
-    return false;
-  }
-
-  updateDeathTimer() {
-    if (this.isDead && this.deathTimer > 0) {
-      this.deathTimer--;
-      if (this.deathTimer === 0) {
-        return false; 
-      }
-      return true; 
-    }
-    return false;
+    this.currentActionPoints = 0; 
   }
 }

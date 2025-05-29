@@ -19,6 +19,15 @@ export default class Magician extends Character {
           isCritical
         };
       },
+      hardAttack: () => {
+        const damage = Math.floor(Math.random() * 11) + 20;
+        const isCritical = Math.random() < 0.1;
+        return {
+          damage: isCritical ? damage * 2 : damage,
+          cost: 2,
+          isCritical
+        };
+      },
       defence: () => ({
         defence: this.defence * 2
       })

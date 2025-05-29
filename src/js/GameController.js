@@ -8,7 +8,6 @@ import Magician from './characters/Magician.js';
 import Daemon from './characters/Daemon.js';
 import Undead from './characters/Undead.js';
 import Vampire from './characters/Vampire.js';
-import Zombie from './characters/Zombie.js';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
@@ -33,10 +32,6 @@ export default class GameController {
 
     this.movingCharacter = null;
     this.movingPath = [];
-
-    this.deadCharacters = [];
-    this.resurrectionCount = 0;
-    this.maxResurrections = 2;
   }
 
   init() {
@@ -58,8 +53,12 @@ export default class GameController {
   }
 
   resetCharactersActionPoints() {
-    this.playerTeam.characters.forEach((c) => c.resetActionPoints());
-    this.enemyTeam.characters.forEach((c) => c.resetActionPoints());
+    this.playerTeam.characters.forEach((c) => {
+      if (!c.isDead) c.resetActionPoints();
+    });
+    this.enemyTeam.characters.forEach((c) => {
+      if (!c.isDead) c.resetActionPoints();
+    });
   }
 
   generateTeams() {
@@ -154,17 +153,17 @@ export default class GameController {
       ...this.positionedPlayerCharacters,
       ...this.positionedEnemyCharacters,
     ];
-    const character = allChars.find((pc) => pc.position === index)?.character;
-  
-    if (character) {
-      this.gamePlay.setCursor('pointer');
-      this.gamePlay.showCellTooltip(
-        `${character.type} (🎖${character.level} ⚔${character.attack} 🛡${character.defence} ❤${character.health})`,
-        index
-      );
-  
-      if (this.selectedCharacter) {
-        this.gamePlay.showAttackRange(this.selectedCharacter, allChars);
+    const positionedChar = allChars.find(pc => pc.position === index);
+    
+    if (positionedChar) {
+      const cursor = positionedChar.character.isDead ? 'notallowed' : 'pointer';
+      this.gamePlay.setCursor(cursor);
+      
+      if (!positionedChar.character.isDead) {
+        this.gamePlay.showCellTooltip(
+          `${positionedChar.character.type} \n (🎖${positionedChar.character.level} ⚔${positionedChar.character.attack} 🛡${positionedChar.character.defence} ❤${positionedChar.character.health})`,
+          index
+        );
       }
     } else {
       this.gamePlay.setCursor('default');
@@ -179,9 +178,8 @@ export default class GameController {
   getAllCharacters() {
     return [
       ...this.positionedPlayerCharacters,
-      ...this.positionedEnemyCharacters,
-      ...this.deadCharacters
-    ];
+      ...this.positionedEnemyCharacters
+    ].filter(pc => !pc.character.isDead); 
   }
 
   selectCharacter(character, position) {
@@ -207,9 +205,11 @@ export default class GameController {
   async moveCharacter(character, toIndex) {
     const fromIndex = this.selectedCellIndex;
     const path = this.calculatePath(fromIndex, toIndex, character.moveDistance);
-    
+
     if (!path || !path.includes(toIndex)) {
-      this.gamePlay.showMessage("Невозможно переместиться!");
+      this.gamePlay.showMessage(
+        'Невозможно переместиться! Персонаж блокирует путь.'
+      );
       return false;
     }
 
@@ -221,11 +221,11 @@ export default class GameController {
 
     // Анимация перемещения
     await this.animateMovement(character, path);
-    
+
     character.currentActionPoints -= moveCost;
     this.selectedCellIndex = toIndex;
     this.updateCharacterPosition(character, toIndex);
-    
+
     this.redrawTeams();
     this.updateAvailableActions();
 
@@ -240,42 +240,56 @@ export default class GameController {
     const toPos = this.indexToPosition(toIndex);
     const dx = Math.abs(fromPos.x - toPos.x);
     const dy = Math.abs(fromPos.y - toPos.y);
+
+    const isMagicianOrDaemonOrZombie =
+      character.type === 'magician' ||
+      character.type === 'daemon' ||
+      character.type === 'zombie';
+
+    const straightCost = isMagicianOrDaemonOrZombie ? 2 : 1;
+    const diagonalCost = isMagicianOrDaemonOrZombie ? 3 : 2;
+
+    const steps = Math.max(dx, dy);
+
     const isDiagonal = dx > 0 && dy > 0;
-    
-    return isDiagonal ? character.moveCost.diagonal : character.moveCost.straight;
+
+    return steps * (isDiagonal ? diagonalCost : straightCost);
   }
 
   calculatePath(fromIndex, toIndex, maxDistance) {
+    // Добавил проверку на одинаковые позиции
+    if (fromIndex === toIndex) return [fromIndex];
+
     const boardSize = this.gamePlay.boardSize;
-    const fromRow = Math.floor(fromIndex / boardSize);
-    const fromCol = fromIndex % boardSize;
-    const toRow = Math.floor(toIndex / boardSize);
-    const toCol = toIndex % boardSize;
+    const fromPos = this.indexToPosition(fromIndex);
+    const toPos = this.indexToPosition(toIndex);
 
+    // Улучшенный алгоритм поиска пути
     const path = [fromIndex];
-    let currentRow = fromRow;
-    let currentCol = fromCol;
+    let steps = 0;
 
-    while (currentRow !== toRow || currentCol !== toCol) {
-      const rowStep = currentRow < toRow ? 1 : currentRow > toRow ? -1 : 0;
-      const colStep = currentCol < toCol ? 1 : currentCol > toCol ? -1 : 0;
+    while (steps < maxDistance) {
+      const nextPos = { ...fromPos };
+      if (nextPos.x < toPos.x) nextPos.x++;
+      else if (nextPos.x > toPos.x) nextPos.x--;
 
-      currentRow += rowStep;
-      currentCol += colStep;
+      if (nextPos.y < toPos.y) nextPos.y++;
+      else if (nextPos.y > toPos.y) nextPos.y--;
 
-      const nextIndex = currentRow * boardSize + currentCol;
-      const allChars = [
-        ...this.positionedPlayerCharacters,
-        ...this.positionedEnemyCharacters,
-      ];
+      const nextIndex = nextPos.y * boardSize + nextPos.x;
+
+      // Проверяем, не занята ли клетка
       const charAtPos = this.gamePlay.findCharacterByPosition(
-        allChars,
+        [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters],
         nextIndex
       );
 
       if (charAtPos) break;
+
       path.push(nextIndex);
-      if (path.length > maxDistance) break;
+      steps++;
+
+      if (nextPos.x === toPos.x && nextPos.y === toPos.y) break;
     }
 
     return path;
@@ -284,25 +298,31 @@ export default class GameController {
   async animateMovement(character, path) {
     const originalType = character.type;
     character.type = 'generic';
-    
+
     for (let i = 1; i < path.length; i++) {
       const toIndex = path[i];
       this.updateCharacterPosition(character, toIndex);
       this.redrawTeams();
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
-    
+
     character.type = originalType;
   }
 
   updateCharacterPosition(character, newPosition) {
     if (this.playerTeam.characters.includes(character)) {
-      this.positionedPlayerCharacters = this.positionedPlayerCharacters.map(pc => 
-        pc.character === character ? new PositionedCharacter(character, newPosition) : pc
+      this.positionedPlayerCharacters = this.positionedPlayerCharacters.map(
+        (pc) =>
+          pc.character === character
+            ? new PositionedCharacter(character, newPosition)
+            : pc
       );
     } else {
-      this.positionedEnemyCharacters = this.positionedEnemyCharacters.map(pc => 
-        pc.character === character ? new PositionedCharacter(character, newPosition) : pc
+      this.positionedEnemyCharacters = this.positionedEnemyCharacters.map(
+        (pc) =>
+          pc.character === character
+            ? new PositionedCharacter(character, newPosition)
+            : pc
       );
     }
   }
@@ -382,7 +402,8 @@ export default class GameController {
         const colDiff = Math.abs((position % boardSize) - col);
 
         if (rowDiff <= distance && colDiff <= distance && idx !== position) {
-          if (this.gamePlay.findCharacterByPosition(currentTeam, idx)) {
+          const char = this.gamePlay.findCharacterByPosition(currentTeam, idx);
+          if (char) {
             attacks.push(idx);
           }
         }
@@ -429,136 +450,50 @@ export default class GameController {
       )
     );
     const targetPos = this.indexToPosition(targetIndex);
-  
+
     const distance = Math.max(
       Math.abs(attackerPos.x - targetPos.x),
       Math.abs(attackerPos.y - targetPos.y)
     );
-  
+
     if (distance > attacker.attackDistance) {
       this.gamePlay.showError('Враг слишком далеко!');
       return;
     }
-  
+
     const cost = attackType === 'attack' ? 1 : 2;
     if (attacker.currentActionPoints < cost) {
       this.gamePlay.showError('Недостаточно очков действий!');
       return;
     }
-  
+
     const attack = attacker.actions[attackType]();
-    const isCritical = Math.random() < (attackType === 'attack' ? 0.15 : 0.1);
-    const damage = Math.round(attack.damage * (isCritical ? 1.5 : 1));
-  
-    this.gamePlay.showDamage(
-      targetIndex,
-      damage,
-      isCritical
-    );
-  
-    target.health -= damage;
-    attacker.currentActionPoints -= cost;
-  
+    const damage = Math.round(attack.damage);
+    
+    this.gamePlay.showDamage(targetIndex, damage);
+    target.takeDamage(damage);
+    attacker.currentActionPoints -= attack.cost;
+    
     this.gamePlay.hideActionMenu();
     this.redrawTeams();
-    this.updateAvailableActions();
-  
+    
     if (target.health <= 0) {
-      this.handleCharacterDeath(target, attacker);
+      this.handleCharacterDeath(target);
     }
-  
+    
     if (this.checkTurnEnd()) {
       this.switchTurn();
     }
   }
 
-  handleCharacterDeath(character, killer) {
-    if (character.team === 'player') {
-      // Логика для смерти персонажа игрока
-      if (killer.type === 'daemon') {
-        this.turnIntoZombie(character);
-      } else if (killer.type === 'vampire' && Math.random() < 0.3) {
-        this.turnIntoVampire(character);
-      } else {
-        this.startResurrectionTimer(character);
-      }
-    } else {
-      // Логика для смерти врага
-      this.removeEnemy(character);
-    }
-  }
-
-  startResurrectionTimer(character) {
+  handleCharacterDeath(character) {
     character.die();
-    this.deadCharacters.push(
-      new PositionedCharacter(character, character.position)
-    );
-    this.gamePlay.showMessage(`${character.type} пал. У вас есть 3 хода, чтобы его воскресить!`);
-  }
-
-  turnIntoZombie(character) {
-    const zombie = new Zombie(character.level);
-    zombie.position = character.position;
-    this.positionedEnemyCharacters.push(
-      new PositionedCharacter(zombie, zombie.position)
-    );
-    this.removePlayerCharacter(character);
-  }
-
-  turnIntoVampire(character) {
-    const vampire = new Vampire(character.level);
-    vampire.position = character.position;
-    this.positionedEnemyCharacters.push(
-      new PositionedCharacter(vampire, vampire.position)
-    );
-    this.removePlayerCharacter(character);
-  }
-
-  resurrectCharacter(magician, deadCharacter) {
-    if (magician.type !== 'magician' || this.resurrectionCount >= this.maxResurrections) {
-      return false;
-    }
-
-    const distance = magician.calculateDistance(
-      this.indexToPosition(magician.position),
-      this.indexToPosition(deadCharacter.position)
-    );
-
-    if (distance > magician.attackDistance) {
-      this.gamePlay.showError('Слишком далеко для воскрешения!');
-      return false;
-    }
-
-    if (magician.currentActionPoints < 2) {
-      this.gamePlay.showError('Недостаточно очков действий!');
-      return false;
-    }
-
-    deadCharacter.resurrect();
-    magician.currentActionPoints -= 2;
-    this.resurrectionCount++;
-    
-    this.deadCharacters = this.deadCharacters.filter(
-      pc => pc.character !== deadCharacter
-    );
-    
-    this.positionedPlayerCharacters.push(
-      new PositionedCharacter(deadCharacter, deadCharacter.position)
-    );
-    
+    this.gamePlay.showMessage(`${character.type} погиб!`);
     this.redrawTeams();
-    this.updateAvailableActions();
-    return true;
-  }
 
-  updateDeathTimers() {
-    this.deadCharacters = this.deadCharacters.filter(pc => {
-      const stillDead = pc.character.updateDeathTimer();
-      if (!stillDead) {
-        this.gamePlay.showMessage(`${pc.character.type} окончательно умер!`);
-      }
-      return stillDead;
-    });
+    if (this.checkWinConditions()) {
+      return;
+    }
   }
 
   performDefence(character) {
@@ -599,7 +534,9 @@ export default class GameController {
   }
 
   checkTurnEnd() {
-    return this.playerTeam.characters.every((c) => c.currentActionPoints <= 0);
+    return this.playerTeam.characters
+      .filter(c => !c.isDead)
+      .every(c => c.currentActionPoints <= 0);
   }
 
   switchTurn() {
@@ -619,5 +556,189 @@ export default class GameController {
     if (this.gameState.currentTurn === 'enemy') {
       this.makeEnemyMove();
     }
+  }
+
+  async makeEnemyMove() {
+    try {
+      // Проверяем условия победы перед ходом
+      if (this.checkWinConditions()) return;
+
+      for (const positionedChar of [...this.positionedEnemyCharacters].sort(
+        () => Math.random() - 0.5
+      )) {
+        const enemy = positionedChar.character;
+        const enemyPos = positionedChar.position;
+
+        if (enemy.currentActionPoints <= 0) continue;
+
+        // Поиск целей с учетом радиуса атаки
+        const targets = this.positionedPlayerCharacters
+          .filter((pc) => !pc.character.isDead)
+          .map((pc) => ({
+            ...pc,
+            distance: this.calculateDistance(
+              this.indexToPosition(enemyPos),
+              this.indexToPosition(pc.position)
+            ),
+          }))
+          .filter((pc) => pc.distance <= enemy.attackDistance)
+          .sort((a, b) => a.character.health - b.character.health);
+
+        // Если есть цель для атаки
+        if (targets.length > 0) {
+          await this.performAttack(
+            enemy,
+            targets[0].character,
+            targets[0].position,
+            'attack'
+          );
+          if (this.checkWinConditions()) return;
+          continue;
+        }
+
+        // Движение к ближайшему противнику
+        const nearestPlayer = [...this.positionedPlayerCharacters]
+          .filter((pc) => !pc.character.isDead)
+          .reduce((nearest, current) => {
+            const nearestDist = this.calculateDistance(
+              this.indexToPosition(enemyPos),
+              this.indexToPosition(nearest.position)
+            );
+            const currentDist = this.calculateDistance(
+              this.indexToPosition(enemyPos),
+              this.indexToPosition(current.position)
+            );
+            return currentDist < nearestDist ? current : nearest;
+          });
+
+        const path = this.calculatePath(
+          enemyPos,
+          nearestPlayer.position,
+          enemy.moveDistance
+        );
+        if (path.length > 1) {
+          await this.moveEnemyCharacter(enemy, path[1]);
+          if (this.checkWinConditions()) return;
+        }
+      }
+    } catch (error) {
+      console.error('AI move error:', error);
+    } finally {
+      this.switchTurn();
+    }
+  }
+
+  getAttackTargets(enemy, enemyPos, playerChars) {
+    return playerChars.filter((playerChar) => {
+      const distance = this.calculateDistance(
+        this.indexToPosition(enemyPos),
+        this.indexToPosition(playerChar.position)
+      );
+      return distance <= enemy.attackDistance;
+    });
+  }
+
+  async moveTowardsNearestPlayer(enemy, enemyPos, playerChars) {
+    // Находим ближайшего персонажа игрока
+    const nearestPlayer = playerChars.reduce((prev, current) => {
+      const prevDistance = this.calculateDistance(
+        this.indexToPosition(enemyPos),
+        this.indexToPosition(prev.position)
+      );
+      const currentDistance = this.calculateDistance(
+        this.indexToPosition(enemyPos),
+        this.indexToPosition(current.position)
+      );
+      return currentDistance < prevDistance ? current : prev;
+    });
+
+    const path = this.calculatePath(
+      enemyPos,
+      nearestPlayer.position,
+      enemy.moveDistance
+    );
+
+    if (path && path.length > 1) {
+      // Выбираем последнюю позицию в пределах moveDistance
+      const moveToIndex = path[Math.min(path.length - 1, enemy.moveDistance)];
+      await this.moveEnemyCharacter(enemy, moveToIndex);
+    }
+  }
+
+  async moveEnemyCharacter(character, toIndex) {
+    try {
+      const fromIndex = this.findPositionByCharacter(
+        this.positionedEnemyCharacters,
+        character
+      );
+      if (fromIndex === null || typeof fromIndex !== 'number') {
+        return false;
+      }
+
+      const path = this.calculatePath(
+        fromIndex,
+        toIndex,
+        character.moveDistance
+      );
+
+      if (!path || !path.includes(toIndex)) {
+        return false;
+      }
+
+      const moveCost = this.calculateMoveCost(fromIndex, toIndex, character);
+      if (moveCost > character.currentActionPoints) {
+        return false;
+      }
+
+      // Анимация перемещения
+      await this.animateMovement(character, path);
+
+      character.currentActionPoints -= moveCost;
+      this.updateCharacterPosition(character, toIndex);
+
+      this.redrawTeams();
+      return true;
+    } catch (error) {
+      console.error('Error in moveEnemyCharacter:', error);
+      return false;
+    }
+  }
+
+  // Необходимо также добавить этот метод в класс GameController
+  findPositionByCharacter(positionedCharacters, character) {
+    const positionedChar = positionedCharacters.find(
+      (c) => c.character === character
+    );
+    return positionedChar ? positionedChar.position : null;
+  }
+
+  calculateDistance(pos1, pos2) {
+    const dx = Math.abs(pos1.x - pos2.x);
+    const dy = Math.abs(pos1.y - pos2.y);
+    return Math.max(dx, dy);
+  }
+
+  checkWinConditions() {
+    // Проверка победы игрока
+    const allEnemiesDead = this.positionedEnemyCharacters.every(
+      (pc) => pc.character.isDead || pc.character.health <= 0
+    );
+
+    // Проверка победы противника
+    const allPlayersDead = this.positionedPlayerCharacters.every(
+      (pc) => pc.character.isDead || pc.character.health <= 0
+    );
+
+    if (allEnemiesDead) {
+      this.gamePlay.showMessage('Поздравляем! Вы победили!');
+      return true;
+    }
+
+    if (allPlayersDead) {
+      this.gamePlay.showMessage('Игра окончена. Вы проиграли.');
+      return true;
+    }
+
+    return false;
   }
 }

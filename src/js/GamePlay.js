@@ -159,6 +159,10 @@ export default class GamePlay {
     this.loadGameListeners.forEach(o => o.call(null));
   }
 
+  setCursor(cursorType) {
+    this.boardEl.style.cursor = cursorType;
+  }
+
   showError(message) {
     const errorElement = document.getElementById('game-error');
     if (errorElement) {
@@ -175,9 +179,12 @@ export default class GamePlay {
     }
   }
 
-  selectCell(index, color = 'yellow') {
+  selectCell(index, color = 'yellow', style = 'solid') {
     this.deselectCell(index);
     this.cells[index].classList.add('selected', `selected-${color}`);
+    if (style === 'dashed') {
+      this.cells[index].classList.add('selected-dashed');
+    }
   }
 
   deselectCell(index) {
@@ -186,7 +193,8 @@ export default class GamePlay {
       'selected', 
       'selected-yellow', 
       'selected-green', 
-      'selected-red'
+      'selected-red',
+      'selected-dashed'
     );
   }
 
@@ -239,19 +247,14 @@ export default class GamePlay {
   }
 
   showAttackRange(character, positionedCharacters) {
-    this.deselectAllCells();
-    
     const position = this.findPositionByCharacter(positionedCharacters, character);
     if (position === null) return;
   
-    const enemies = positionedCharacters.filter(pc => {
-      const isEnemy = !positionedCharacters.some(
-        playerPc => playerPc.character === character && playerPc.character === pc.character
-      );
-      return isEnemy;
-    });
+    const enemyTeam = positionedCharacters.filter(pc => 
+      pc.character.team !== character.team
+    );
   
-    enemies.forEach(enemy => {
+    enemyTeam.forEach(enemy => {
       const distance = character.calculateDistance(
         { x: position % this.boardSize, y: Math.floor(position / this.boardSize) },
         { x: enemy.position % this.boardSize, y: Math.floor(enemy.position / this.boardSize) }
@@ -263,36 +266,26 @@ export default class GamePlay {
     });
   }
 
-  showDamage(index, damage, isCritical = false) {
-    return new Promise(resolve => {
-      const cell = this.cells[index];
-      const damageEl = document.createElement('div');
-      
-      damageEl.className = 'damage';
-      damageEl.textContent = isCritical ? `Критический урон ${damage}!` : damage;
-      
-      if (isCritical) {
-        damageEl.classList.add('critical');
-        damageEl.style.color = '#ff0';
-        damageEl.style.fontSize = '1.2em';
-        damageEl.style.animation = 'criticalHit 0.5s ease-out';
-      } else {
-        damageEl.style.color = '#f00';
-      }
-  
-      damageEl.style.position = 'absolute';
-      damageEl.style.top = '-20px';
-      damageEl.style.left = '50%';
-      damageEl.style.transform = 'translateX(-50%)';
-      damageEl.style.zIndex = '1001';
-  
-      cell.appendChild(damageEl);
-      
-      damageEl.addEventListener('animationend', () => {
+  showDamage(index, damage) {
+    const cell = this.cells[index];
+    const damageEl = document.createElement('div');
+    damageEl.className = 'damage';
+    damageEl.textContent = `-${damage}`;
+    damageEl.style.color = '#ff0000';
+    damageEl.style.fontSize = '24px';
+    damageEl.style.position = 'absolute';
+    damageEl.style.zIndex = '1000';
+    damageEl.style.top = '0';
+    damageEl.style.left = '50%';
+    damageEl.style.transform = 'translateX(-50%)';
+    
+    cell.appendChild(damageEl);
+    
+    setTimeout(() => {
+      if (cell.contains(damageEl)) {
         cell.removeChild(damageEl);
-        resolve();
-      });
-    });
+      }
+    }, 1000);
   }
 
   showCellTooltip(message, index) {
@@ -310,12 +303,6 @@ export default class GamePlay {
     tooltip.innerHTML = `
       <span class="character-type">${message}</span>
     `;
-  
-    tooltip.style.position = 'absolute';
-    tooltip.style.bottom = '100%';
-    tooltip.style.left = '50%';
-    tooltip.style.transform = 'translateX(-50%)';
-    tooltip.style.zIndex = '1000';
   
     cell.appendChild(tooltip);
     cell.tooltip = tooltip; 

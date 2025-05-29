@@ -109,29 +109,26 @@ body {
 
 .custom-tooltip {
   position: absolute;
-  z-index: 1000;
+  z-index: 9999;
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
   background-color: rgba(0, 0, 0, 0.8);
   color: white;
-  padding: 5px;
   border-radius: 4px;
-  min-width: 180px;
+  min-width: 250px;
   text-align: center;
   font-family: 'Courier New', monospace;
+  font-size: 10px;
   pointer-events: none;
-  display: block; 
+  display: flex; 
 }
 
 
 .custom-tooltip .character-type {
   font-size: 1.2em;
   font-weight: bold;
-  display: block;
-  text-align: center;
   margin-bottom: 5px;
-  color: #fff;
 }
 
 .cell:hover .custom-tooltip {
@@ -266,6 +263,14 @@ body {
   background: url('../img/characters/zombie.png');
 }
 
+.character.dead {
+  background: url('../img/characters/dead.png');
+  opacity: 0.7;
+  filter: grayscale(100%);
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
 .health-level {
   top: 2px;
   left: 7px;
@@ -325,10 +330,6 @@ body {
   z-index: 1002;
   position: absolute;
   background: rgba(0, 0, 0, 0.9);
-  border: 1px solid #444;
-  border-radius: 4px;
-  padding: 5px;
-  min-width: 180px;
 }
 
 .attack-menu {
@@ -368,10 +369,6 @@ body {
 .character {
   z-index: 1001;
 }
-
-/* .action-menu {
-  z-index: 1002;
-} */
 
 .damage.critical {
   color: #ff0;
@@ -440,31 +437,15 @@ body {
 }
 
 /* Подсветка атаки */
-.selected-red.selected-dashed {
+/* .selected-red.selected-dashed {
   box-shadow: 0 0 0 2px red;
   border: 2px dashed red;
-}
+} */
 
 /* Курсор при наведении */
 .cell:hover {
   cursor: pointer;
 }
 
-/* tooltip */
 
-.custom-tooltip {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 5px;
-  border-radius: 4px;
-  min-width: 180px;
-  text-align: center;
-  font-family: 'Courier New', monospace;
-  z-index: 1000;
-  pointer-events: none;
-}
 
