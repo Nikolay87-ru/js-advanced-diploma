@@ -32,14 +32,88 @@ export default class GameController {
 
     this.movingCharacter = null;
     this.movingPath = [];
+
+    this.currentLevel = 1;
+    this.maxLevel = 4;
+    this.themes = ['prairie', 'desert', 'arctic', 'mountain'];
+    this.maxScore = 0;
+  }
+
+  async checkWinConditions() {
+    const allEnemiesDead = this.positionedEnemyCharacters.every(
+      (pc) => pc.character.isDead || pc.character.health <= 0
+    );
+
+    const allPlayersDead = this.positionedPlayerCharacters.every(
+      (pc) => pc.character.isDead || pc.character.health <= 0
+    );
+
+    if (allEnemiesDead) {
+      const score = this.calculateScore();
+      this.maxScore = Math.max(this.maxScore, score);
+      
+      if (this.currentLevel < this.maxLevel) {
+        await this.nextLevel();
+      } else {
+        this.gamePlay.showMessage(`Поздравляем! Вы прошли все уровни! Максимальный счет: ${this.maxScore}`);
+        this.lockGame();
+      }
+      return true;
+    }
+
+    if (allPlayersDead) {
+      this.gamePlay.showMessage(`Игра окончена. Вы проиграли. Максимальный счет: ${this.maxScore}`);
+      this.lockGame();
+      return true;
+    }
+
+    return false;
+  }
+
+  async nextLevel() {
+    this.currentLevel++;
+    const theme = this.themes[this.currentLevel - 1];
+    
+    this.playerTeam.characters
+      .filter(c => !c.isDead)
+      .forEach(c => c.levelUp());
+    
+    this.playerTeam.characters.forEach(c => {
+      if (!c.isDead) {
+        c.health = Math.min(c.health + 80, c.maxHealth);
+      }
+    });
+    
+    this.gamePlay.showMessage(`Уровень ${this.currentLevel}! Тема: ${theme}`);
+    
+    this.gamePlay.drawUi(theme);
+    this.generateTeams();
+    this.redrawTeams();
+    this.resetCharactersActionPoints();
+    this.updateTurnIndicator();
+  }
+
+  calculateScore() {
+    return this.playerTeam.characters.reduce((score, char) => {
+      return score + char.level * 10 + char.health;
+    }, 0);
+  }
+
+  lockGame() {
+    this.gamePlay.deselectAllCells();
+    this.gamePlay.hideActionMenu();
+    this.isGameLocked = true;
   }
 
   init() {
     try {
-      this.gamePlay.drawUi(themes.prairie);
+      const theme = this.themes[this.currentLevel - 1];
+      this.gamePlay.drawUi(theme);
       this.generateTeams();
       this.redrawTeams();
       this.setupEventListeners();
+      
+      this.gamePlay.addNewGameListener(() => this.newGame());
 
       this.gamePlay.setCursor = (cursorType) => {
         this.gamePlay.boardEl.style.cursor = cursorType;
@@ -50,6 +124,17 @@ export default class GameController {
     }
     this.updateTurnIndicator();
     this.resetCharactersActionPoints();
+  }
+
+  newGame() {
+    this.currentLevel = 1;
+    this.isGameLocked = false;
+    const theme = this.themes[this.currentLevel - 1];
+    this.gamePlay.drawUi(theme);
+    this.generateTeams();
+    this.redrawTeams();
+    this.resetCharactersActionPoints();
+    this.updateTurnIndicator();
   }
 
   resetCharactersActionPoints() {

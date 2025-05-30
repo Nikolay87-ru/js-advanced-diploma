@@ -13,7 +13,10 @@ export default class Character {
     this.currentActionPoints = 4;
     this.team = 'player'; 
     this.isDead = false;
-    this.deathTimer = 0;
+
+    for (let i = 1; i < level; i++) {
+      this.levelUp();
+    }
     
     this.actions = {
       attack: () => ({ damage: 10, cost: 1 }),
@@ -26,6 +29,26 @@ export default class Character {
       straight: 1,
       diagonal: 1 
     };
+  }
+
+  levelUp() {
+    this.level++;
+    
+    const newHealth = this.health + 80;
+    this.health = Math.min(newHealth, this.maxHealth);
+    
+    const healthPercentage = this.health / this.maxHealth * 100;
+    const improvementFactor = (80 + healthPercentage) / 100;
+    
+    if (typeof this.attack === 'number') {
+      this.attack = Math.max(this.attack, Math.round(this.attack * improvementFactor));
+    }
+    
+    if (typeof this.defence === 'number') {
+      this.defence = Math.max(this.defence, Math.round(this.defence * improvementFactor));
+    }
+    
+    this.resetActionPoints();
   }
 
   calculateDistance(pos1, pos2) {
