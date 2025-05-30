@@ -66,20 +66,16 @@ export default class GamePlay {
 
   redrawPositions(positions) {
     this.cells.forEach(cell => cell.innerHTML = '');
-
+  
     positions.forEach(position => {
       const cellEl = this.boardEl.children[position.position];
       const charEl = document.createElement('div');
       
-      if (position.character.isDead) {
-        charEl.classList.add('character', 'dead');
-      } else {
-        charEl.classList.add('character', position.character.type);
-      }
-
+      charEl.classList.add('character', position.character.isDead ? 'dead' : position.character.type);
+  
       const healthEl = document.createElement('div');
       healthEl.classList.add('health-level');
-
+  
       const healthIndicatorEl = document.createElement('div');
       healthIndicatorEl.classList.add(
         'health-level-indicator', 
@@ -266,26 +262,30 @@ export default class GamePlay {
     });
   }
 
-  showDamage(index, damage) {
+  async showDamage(index, damage, isCritical = false) {
     const cell = this.cells[index];
+    if (!cell) return;
+  
+    const existingDamage = cell.querySelector('.damage');
+    if (existingDamage) {
+      cell.removeChild(existingDamage);
+    }
+  
     const damageEl = document.createElement('div');
-    damageEl.className = 'damage';
+    damageEl.className = `damage ${isCritical ? 'critical' : ''}`;
     damageEl.textContent = `-${damage}`;
-    damageEl.style.color = '#ff0000';
-    damageEl.style.fontSize = '24px';
-    damageEl.style.position = 'absolute';
-    damageEl.style.zIndex = '1000';
-    damageEl.style.top = '0';
-    damageEl.style.left = '50%';
-    damageEl.style.transform = 'translateX(-50%)';
-    
     cell.appendChild(damageEl);
-    
-    setTimeout(() => {
-      if (cell.contains(damageEl)) {
-        cell.removeChild(damageEl);
-      }
-    }, 1000);
+  
+    damageEl.style.animation = 'damageAnimation 1s forwards';
+  
+    await new Promise(resolve => {
+      damageEl.addEventListener('animationend', () => {
+        if (cell.contains(damageEl)) {
+          cell.removeChild(damageEl);
+        }
+        resolve();
+      }, { once: true });
+    });
   }
 
   showCellTooltip(message, index) {
@@ -310,7 +310,7 @@ export default class GamePlay {
   
   removeCellTooltip(index) {
     const cell = this.cells[index];
-    if (!cell || !cell.tooltip) return;
+    if (!cell || !cell.tooltip || !cell.contains(cell.tooltip)) return;
     
     cell.removeChild(cell.tooltip);
     delete cell.tooltip;

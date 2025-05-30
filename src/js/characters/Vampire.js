@@ -18,20 +18,7 @@ export default class Vampire extends Character {
           cost: 1,
           isCritical,
         };
-      },
-      hardAttack: () => {
-        const damage = Math.floor(Math.random() * 11) + 15;
-        const isCritical = Math.random() < 0.1;
-        return {
-          damage: isCritical ? damage * 2 : damage,
-          cost: 2,
-          isCritical,
-        };
-      },
-      defence: () => ({
-        defence: this.defence * 2,
-        cost: 1,
-      }),
+      }
     };
   }
 }

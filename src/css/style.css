@@ -360,6 +360,7 @@ body {
   border-radius: 3px;
   text-align: left;
   white-space: nowrap;
+  width: 100%;
 }
 
 .action-button:hover {
@@ -368,18 +369,6 @@ body {
 
 .character {
   z-index: 1001;
-}
-
-.damage.critical {
-  color: #ff0;
-  font-size: 1.2em;
-  animation: criticalHit 0.5s ease-out;
-}
-
-@keyframes criticalHit {
-  0% { transform: scale(1); opacity: 0; }
-  50% { transform: scale(1.5); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
 }
 
 // анимация перемещения
@@ -414,26 +403,33 @@ body {
 /* Анимация урона */
 .damage {
   position: absolute;
-  top: -20px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
-  color: #f00;
+  color: red;
   font-weight: bold;
-  font-size: 1rem;
-  z-index: 1001;
-  animation: damageAnimation 1s ease-out;
+  font-size: 1.2em;
+  z-index: 1000;
+  pointer-events: none;
+  text-shadow: 0 0 3px black;
+  will-change: transform, opacity;
+  animation: damageAnimation 1s forwards;
 }
 
 .damage.critical {
   color: #ff0;
-  font-size: 1.2em;
-  animation: criticalHit 0.5s ease-out;
+  animation: criticalHit 1s forwards;
+}
+
+@keyframes damageAnimation {
+  0% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-100px) scale(1.5); opacity: 0; }
 }
 
 @keyframes criticalHit {
-  0% { transform: translateX(-50%) scale(1); opacity: 0; }
-  50% { transform: translateX(-50%) scale(1.5); opacity: 1; }
-  100% { transform: translateX(-50%) scale(1); opacity: 1; }
+  0% { transform: translateX(-50%) scale(1); opacity: 1; }
+  50% { transform: translateX(-50%) scale(2); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1.5); opacity: 0; }
 }
 
 /* Подсветка атаки */
