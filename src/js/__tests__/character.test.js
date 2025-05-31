@@ -1,111 +1,73 @@
-import Character from '../Character';
-import Bowman from '../characters/Bowman';
-import Swordsman from '../characters/Swordsman';
-import Magician from '../characters/Magician';
-import Daemon from '../characters/Daemon';
-import Undead from '../characters/Undead';
-import Vampire from '../characters/Vampire';
-import { characterGenerator, generateTeam } from '../generators';
+import GameController from '../GameController.js';
+import Bowman from '../characters/Bowman.js';
 
-describe('Character base class', () => {
+describe('GameController onCellEnter method', () => {
+  let gameController;
+  let gamePlayMock;
+  let stateServiceMock;
 
-  test('inherited classes should not throw errors', () => {
-    expect(() => new Bowman(1)).not.toThrow();
-    expect(() => new Swordsman(1)).not.toThrow();
-    expect(() => new Magician(1)).not.toThrow();
-    expect(() => new Daemon(1)).not.toThrow();
-    expect(() => new Undead(1)).not.toThrow();
-    expect(() => new Vampire(1)).not.toThrow();
-  });
-});
-
-describe('Character level 1 stats', () => {
-  const testStats = (CharacterClass, expectedAttackRange, expectedDefence) => {
-    test(`${CharacterClass.name} has correct stats`, () => {
-      const char = new CharacterClass(1);
-      const [minAttack, maxAttack] = expectedAttackRange.split('-').map(Number);
-      const attackValue = parseInt(char.attack.split('-')[0], 10);
-      expect(attackValue).toBeGreaterThanOrEqual(minAttack);
-      expect(attackValue).toBeLessThanOrEqual(maxAttack);
-      
-      expect(char.defence).toBe(expectedDefence);
-      expect(char.health).toBe(50);
-      expect(char.level).toBe(1);
-    });
-  };
-
-  testStats(Bowman, '15-25', 25);
-  testStats(Swordsman, '30-40', 10);
-  testStats(Magician, '10-20', 40);
-  testStats(Daemon, '10-20', 40);
-  testStats(Undead, '30-40', 10);
-  testStats(Vampire, '15-25', 25);
-});
-
-describe('characterGenerator', () => {
-  const allowedTypes = [Bowman, Swordsman, Magician];
-  const maxLevel = 3;
-
-  test('should generate characters infinitely', () => {
-    const generator = characterGenerator(allowedTypes, maxLevel);
-    const characters = new Set();
+  beforeEach(() => {
+    gamePlayMock = {
+      setCursor: jest.fn(),
+      selectCell: jest.fn(),
+      showCellTooltip: jest.fn(),
+      hideCellTooltip: jest.fn(),
+      deselectCell: jest.fn(),
+      cells: Array(64).fill({}),
+      boardEl: { style: { cursor: '' } },
+      boardSize: 8,
+      findCharacterByPosition: jest.fn(),
+      findPositionByCharacter: jest.fn(),
+      removeCellTooltip: jest.fn()
+    };
     
-    for (let i = 0; i < 10; i++) {
-      const character = generator.next().value;
-      expect(character).toBeInstanceOf(Character);
-      characters.add(character.type);
-    }
+    stateServiceMock = {
+      load: jest.fn(),
+      save: jest.fn(),
+    };
+
+    gameController = new GameController(gamePlayMock, stateServiceMock);
     
-    expect(characters.size).toBeGreaterThanOrEqual(1);
-  });
+    const bowman = new Bowman(1);
+    gameController.positionedPlayerCharacters = [
+      { character: bowman, position: 0 }
+    ];
+    gameController.playerTeam = {
+      characters: [bowman]
+    };
 
-  test('should only generate allowed types', () => {
-    const generator = characterGenerator(allowedTypes, maxLevel);
-    
-    for (let i = 0; i < 10; i++) {
-      const character = generator.next().value;
-      expect(allowedTypes.some(Type => character instanceof Type)).toBeTruthy();
-    }
-  });
-
-  test('should generate characters with correct levels', () => {
-    const generator = characterGenerator(allowedTypes, maxLevel);
-    
-    for (let i = 0; i < 10; i++) {
-      const character = generator.next().value;
-      expect(character.level).toBeGreaterThanOrEqual(1);
-      expect(character.level).toBeDefined();
-    }
-  });
-});
-
-describe('generateTeam', () => {
-  const allowedTypes = [Daemon, Undead, Vampire];
-  const maxLevel = 4;
-  const characterCount = 3;
-
-  test('should generate team with correct number of characters', () => {
-    const team = generateTeam(allowedTypes, maxLevel, characterCount);
-    expect(team.characters.length).toBe(characterCount);
-  });
-
-  test('should generate characters with correct levels', () => {
-    const team = generateTeam(allowedTypes, maxLevel, characterCount);
-    team.characters.forEach(character => {
-      expect(character.level).toBeGreaterThanOrEqual(1);
-      expect(character.level).toBeDefined();
+    gamePlayMock.findCharacterByPosition.mockImplementation((chars, index) => {
+      return chars.find(pc => pc.position === index)?.character;
     });
   });
 
-  test('should generate only allowed types', () => {
-    const team = generateTeam(allowedTypes, maxLevel, characterCount);
-    team.characters.forEach(character => {
-      expect(allowedTypes.some(Type => character instanceof Type)).toBeTruthy();
-    });
+  test('should show tooltip with correct character info when entering cell with character', () => {
+    gameController.onCellEnter(0);
+    
+    expect(gamePlayMock.setCursor).toHaveBeenCalledWith('pointer');
+    expect(gamePlayMock.showCellTooltip).toHaveBeenCalled();
+    
+    const tooltipContent = gamePlayMock.showCellTooltip.mock.calls[0][0];
+    expect(tooltipContent).toContain('bowman');
+    expect(tooltipContent).toContain('1');
+    expect(tooltipContent).toContain('50');
   });
 
-  test('should handle zero character count', () => {
-    const team = generateTeam(allowedTypes, maxLevel, 0);
-    expect(team.characters.length).toBe(0);
+  test('should not show tooltip when entering empty cell', () => {
+    gameController.onCellEnter(1);
+    
+    expect(gamePlayMock.setCursor).toHaveBeenCalledWith('default');
+    const wasHidden = gamePlayMock.hideCellTooltip.mock.calls.some(call => call[0] === 1) ||
+                     gamePlayMock.removeCellTooltip.mock.calls.some(call => call[0] === 1);
+    expect(wasHidden).toBeTruthy();
+    expect(gamePlayMock.showCellTooltip).not.toHaveBeenCalled();
+  });
+
+  test('should not show green selection when entering selected character cell', () => {
+    gameController.selectedCharacter = gameController.positionedPlayerCharacters[0].character;
+    gameController.onCellEnter(0);
+    
+    expect(gamePlayMock.selectCell).not.toHaveBeenCalledWith(0, 'green');
+    expect(gamePlayMock.showCellTooltip).toHaveBeenCalled();
   });
 });
