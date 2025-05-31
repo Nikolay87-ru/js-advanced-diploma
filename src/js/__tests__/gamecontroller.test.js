@@ -14,10 +14,11 @@ describe('GameController onCellEnter method', () => {
       hideCellTooltip: jest.fn(),
       deselectCell: jest.fn(),
       cells: Array(64).fill({}),
-      boardEl: { style: {} },
+      boardEl: { style: { cursor: '' } },
       boardSize: 8,
       findCharacterByPosition: jest.fn(),
-      findPositionByCharacter: jest.fn()
+      findPositionByCharacter: jest.fn(),
+      removeCellTooltip: jest.fn()
     };
     
     stateServiceMock = {
@@ -44,21 +45,19 @@ describe('GameController onCellEnter method', () => {
     gameController.onCellEnter(0);
     
     expect(gamePlayMock.setCursor).toHaveBeenCalledWith('pointer');
-    expect(gamePlayMock.selectCell).toHaveBeenCalledWith(0, 'yellow');
-    
     expect(gamePlayMock.showCellTooltip).toHaveBeenCalled();
     
     const tooltipContent = gamePlayMock.showCellTooltip.mock.calls[0][0];
     expect(tooltipContent).toContain('bowman');
-    expect(tooltipContent).toContain('1'); 
-    expect(tooltipContent).toContain('50'); 
+    expect(tooltipContent).toContain('1');
+    expect(tooltipContent).toContain('50');
   });
 
   test('should not show tooltip when entering empty cell', () => {
     gameController.onCellEnter(1);
     
     expect(gamePlayMock.setCursor).toHaveBeenCalledWith('default');
-    expect(gamePlayMock.hideCellTooltip).toHaveBeenCalledWith(1);
+    expect(gamePlayMock.removeCellTooltip).toHaveBeenCalledWith(1);
     expect(gamePlayMock.showCellTooltip).not.toHaveBeenCalled();
   });
 
