@@ -30,6 +30,10 @@ export default class GamePlay {
         <button data-id="action-save" class="btn">Save Game</button>
         <button data-id="action-load" class="btn">Load Game</button>
       </div>
+      <div id="game-stats">
+        <div>Уровень: <span id="current-level">1</span></div>
+        <div>Макс. счет: <span id="max-score">0</span></div>
+      </div>
       <div id="action-points"></div>
       <div class="board-container">
         <div data-id="board" class="board"></div>
@@ -62,6 +66,14 @@ export default class GamePlay {
     }
 
     this.cells = Array.from(this.boardEl.children);
+  }
+
+  updateStats(level, maxScore) {
+    const levelEl = document.getElementById('current-level');
+    const scoreEl = document.getElementById('max-score');
+    
+    if (levelEl) levelEl.textContent = level;
+    if (scoreEl) scoreEl.textContent = maxScore;
   }
 
   redrawPositions(positions) {

@@ -18,19 +18,7 @@ export default class Undead extends Character {
           cost: 1,
           isCritical
         };
-      },
-      hardAttack: () => {
-        const damage = Math.floor(Math.random() * 11) + 40;
-        const isCritical = Math.random() < 0.1;
-        return {
-          damage: isCritical ? damage * 2 : damage,
-          cost: 2,
-          isCritical
-        };
-      },
-      defence: () => ({
-        defence: this.defence * 2
-      })
+      }
     };
   }
 }

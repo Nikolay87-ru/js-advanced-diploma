@@ -33,7 +33,6 @@ export default class Character {
 
   levelUp() {
     this.level++;
-    
     const newHealth = this.health + 80;
     this.health = Math.min(newHealth, this.maxHealth);
     

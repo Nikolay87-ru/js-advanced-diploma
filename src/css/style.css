@@ -25,6 +25,12 @@ body {
   border-radius: .25rem;
   transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out,box-shadow .15s ease-in-out;
   border: none;
+  cursor: pointer;
+
+  &:hover {
+    background-color:rgb(195, 197, 199);
+    transition: color 0.2s;
+  }
 }
 
 .controls {
@@ -432,16 +438,20 @@ body {
   100% { transform: translateX(-50%) scale(1.5); opacity: 0; }
 }
 
-/* Подсветка атаки */
-/* .selected-red.selected-dashed {
-  box-shadow: 0 0 0 2px red;
-  border: 2px dashed red;
-} */
 
 /* Курсор при наведении */
 .cell:hover {
   cursor: pointer;
 }
 
+/* Меню статиситки игры */
 
+#game-stats {
+  display: block;
+  color: white;
+  padding: 10px;
+  text-align: center;
+  font-family: 'Courier New', monospace;
+
+}
 

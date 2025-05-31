@@ -1,4 +1,4 @@
-import themes from './themes.js';
+// import themes from './themes.js';
 import { PositionedCharacter } from './PositionedCharacter.js';
 import { generateTeam } from './generators.js';
 import GameState from './GameState.js';
@@ -74,23 +74,31 @@ export default class GameController {
     this.currentLevel++;
     const theme = this.themes[this.currentLevel - 1];
     
+    this.increaseScore(100);
+    
     this.playerTeam.characters
       .filter(c => !c.isDead)
-      .forEach(c => c.levelUp());
-    
-    this.playerTeam.characters.forEach(c => {
-      if (!c.isDead) {
-        c.health = Math.min(c.health + 80, c.maxHealth);
-      }
-    });
-    
+      .forEach(c => {
+        const newHealth = c.level + 80;
+        c.health = Math.min(newHealth, c.maxHealth);
+        
+        const healthPercentage = (c.health / c.maxHealth) * 100;
+        if (healthPercentage > 50) {
+          c.defence = Math.round(c.defence * 1.1); 
+        } else if (healthPercentage > 30) {
+          c.defence = Math.round(c.defence * 1.05); 
+        }
+        
+        c.levelUp();
+      });
+      
     this.gamePlay.showMessage(`Уровень ${this.currentLevel}! Тема: ${theme}`);
-    
     this.gamePlay.drawUi(theme);
     this.generateTeams();
     this.redrawTeams();
     this.resetCharactersActionPoints();
     this.updateTurnIndicator();
+    this.updateStats();
   }
 
   calculateScore() {
@@ -99,10 +107,19 @@ export default class GameController {
     }, 0);
   }
 
+  increaseScore(points) {
+    this.maxScore += points;
+    this.updateStats();
+  }
+
   lockGame() {
     this.gamePlay.deselectAllCells();
     this.gamePlay.hideActionMenu();
     this.isGameLocked = true;
+  }
+
+  updateStats() {
+    this.gamePlay.updateStats(this.currentLevel, this.maxScore);
   }
 
   init() {
@@ -124,6 +141,7 @@ export default class GameController {
     }
     this.updateTurnIndicator();
     this.resetCharactersActionPoints();
+    this.updateStats();
   }
 
   newGame() {
@@ -135,6 +153,7 @@ export default class GameController {
     this.redrawTeams();
     this.resetCharactersActionPoints();
     this.updateTurnIndicator();
+    this.updateStats();
   }
 
   resetCharactersActionPoints() {
@@ -219,6 +238,7 @@ export default class GameController {
   }
 
   onCellClick(index) {
+    if (this.isGameLocked) return;
     const allChars = this.getAllCharacters();
     const clickedChar = this.gamePlay.findCharacterByPosition(allChars, index);
 
@@ -529,6 +549,14 @@ export default class GameController {
     return;
   }
 
+  if (attacker.team === 'player') {
+    this.increaseScore(10); 
+    
+    if (target.health <= 0) {
+      this.increaseScore(50); 
+    }
+  }
+
   const distance = this.calculateDistance(
     this.indexToPosition(attackerPos),
     this.indexToPosition(targetIndex)
@@ -578,12 +606,12 @@ export default class GameController {
   }
 
   performDefence(character) {
-    const defenceBonus = character.currentActionPoints * 0.5;
+    const defenceBonus = character.currentActionPoints * 5;
     character.defence += defenceBonus;
     character.currentActionPoints = 0;
 
     this.gamePlay.showMessage(
-      `${character.type} усилил защиту на ${defenceBonus.toFixed(1)}!`
+      `${character.type} усилил защиту на ${defenceBonus} очков!`
     );
     this.gamePlay.hideActionMenu();
     this.redrawTeams();
@@ -620,66 +648,83 @@ export default class GameController {
       .every(c => c.currentActionPoints <= 0);
   }
 
-  switchTurn() {
+  async switchTurn() {
     this.gamePlay.deselectAllCells();
     this.gamePlay.hideActionMenu();
-
+  
     if (this.gameState.currentTurn === 'player') {
       this.enemyTeam.characters.forEach((c) => c.resetActionPoints());
     } else {
       this.playerTeam.characters.forEach((c) => c.resetActionPoints());
     }
-
-    this.gameState.currentTurn =
+  
+    this.gameState.currentTurn = 
       this.gameState.currentTurn === 'player' ? 'enemy' : 'player';
     this.updateTurnIndicator();
-
-    if (this.gameState.currentTurn === 'enemy') {
-      this.makeEnemyMove();
+  
+    console.log(`Turn switched to: ${this.gameState.currentTurn}`); 
+  
+    if (this.gameState.currentTurn === 'enemy' && !this.isGameLocked) {
+      console.log('Starting AI move...'); 
+      await this.makeEnemyMove();
     }
   }
 
   async makeEnemyMove() {
-    try {
-      if (this.checkWinConditions()) return;
+    console.log('AI move started'); 
+    
+    if (await this.checkWinConditions()) {
+      console.log('AI stopped - win condition met');
+      return;
+    }
   
-      const sortedEnemies = [...this.positionedEnemyCharacters]
+    try {
+      const activeEnemies = this.positionedEnemyCharacters
         .filter(pc => !pc.character.isDead && pc.character.currentActionPoints > 0)
         .sort((a, b) => b.character.attackDistance - a.character.attackDistance);
   
-      for (const positionedChar of sortedEnemies) {
+      console.log(`Active enemies: ${activeEnemies.length}`); 
+  
+      for (const positionedChar of activeEnemies) {
         const enemy = positionedChar.character;
         const enemyPos = positionedChar.position;
-        const enemyPosObj = this.indexToPosition(enemyPos);
+        
+        console.log(`Processing enemy: ${enemy.type} at ${enemyPos}`);
   
         const targets = this.positionedPlayerCharacters
           .filter(pc => !pc.character.isDead)
           .map(pc => ({
             ...pc,
             distance: this.calculateDistance(
-              enemyPosObj,
+              this.indexToPosition(enemyPos),
               this.indexToPosition(pc.position)
-      )}));
+            )
+          }));
   
-        if (targets.length === 0) continue;
+        if (targets.length === 0) {
+          console.log('No targets available');
+          continue;
+        }
   
-
         const attackableTargets = targets
           .filter(t => t.distance <= enemy.attackDistance)
           .sort((a, b) => a.character.health - b.character.health);
   
         if (attackableTargets.length > 0) {
+          console.log(`Attacking target: ${attackableTargets[0].character.type}`);
           await this.performAttack(
             enemy,
             attackableTargets[0].character,
             attackableTargets[0].position,
             'attack'
           );
-          if (this.checkWinConditions()) return;
+          if (await this.checkWinConditions()) return;
           continue;
         }
   
         const nearestTarget = targets.sort((a, b) => a.distance - b.distance)[0];
+        console.log(`Moving towards: ${nearestTarget.character.type}`);
+        
         const path = this.calculatePath(
           enemyPos,
           nearestTarget.position,
@@ -687,19 +732,20 @@ export default class GameController {
         );
   
         if (path && path.length > 1) {
-          const moveToIndex = path[path.length - 1];
+          const moveToIndex = path[Math.min(path.length - 1, enemy.moveDistance)];
           const moveCost = this.calculateMoveCost(enemyPos, moveToIndex, enemy);
           
           if (moveCost <= enemy.currentActionPoints) {
+            console.log(`Moving to position: ${moveToIndex}`);
             await this.moveEnemyCharacter(enemy, moveToIndex);
-            if (this.checkWinConditions()) return;
+            if (await this.checkWinConditions()) return;
           }
         }
-        console.log(`Enemy ${enemy.type} at ${enemyPos} targeting ${nearestTarget.character.type} at ${nearestTarget.position}, distance: ${nearestTarget.distance}`);
       }
     } catch (error) {
       console.error('AI move error:', error);
     } finally {
+      console.log('AI move completed');
       this.switchTurn();
     }
   }
@@ -788,27 +834,5 @@ export default class GameController {
     const dx = Math.abs(pos1.x - pos2.x);
     const dy = Math.abs(pos1.y - pos2.y);
     return Math.max(dx, dy);
-  }
-
-  checkWinConditions() {
-    const allEnemiesDead = this.positionedEnemyCharacters.every(
-      (pc) => pc.character.isDead || pc.character.health <= 0
-    );
-
-    const allPlayersDead = this.positionedPlayerCharacters.every(
-      (pc) => pc.character.isDead || pc.character.health <= 0
-    );
-
-    if (allEnemiesDead) {
-      this.gamePlay.showMessage('Поздравляем! Вы победили!');
-      return true;
-    }
-
-    if (allPlayersDead) {
-      this.gamePlay.showMessage('Игра окончена. Вы проиграли.');
-      return true;
-    }
-
-    return false;
   }
 }
