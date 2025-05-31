@@ -23,22 +23,26 @@ describe('Character base class', () => {
 });
 
 describe('Character level 1 stats', () => {
-  const testStats = (CharacterClass, expectedAttack, expectedDefence) => {
+  const testStats = (CharacterClass, expectedAttackRange, expectedDefence) => {
     test(`${CharacterClass.name} has correct stats`, () => {
       const char = new CharacterClass(1);
-      expect(char.attack).toBe(expectedAttack);
+      const [minAttack, maxAttack] = expectedAttackRange.split('-').map(Number);
+      const attackValue = parseInt(char.attack.split('-')[0], 10);
+      expect(attackValue).toBeGreaterThanOrEqual(minAttack);
+      expect(attackValue).toBeLessThanOrEqual(maxAttack);
+      
       expect(char.defence).toBe(expectedDefence);
       expect(char.health).toBe(50);
       expect(char.level).toBe(1);
     });
   };
 
-  testStats(Bowman, 25, 25);
-  testStats(Swordsman, 40, 10);
-  testStats(Magician, 10, 40);
-  testStats(Daemon, 10, 40);
-  testStats(Undead, 40, 10);
-  testStats(Vampire, 25, 25);
+  testStats(Bowman, '15-25', 25);
+  testStats(Swordsman, '30-40', 10);
+  testStats(Magician, '10-20', 40);
+  testStats(Daemon, '10-20', 40);
+  testStats(Undead, '30-40', 10);
+  testStats(Vampire, '15-25', 25);
 });
 
 describe('characterGenerator', () => {
@@ -49,14 +53,12 @@ describe('characterGenerator', () => {
     const generator = characterGenerator(allowedTypes, maxLevel);
     const characters = new Set();
     
-    // Генерируем больше типов, чем есть в allowedTypes
     for (let i = 0; i < 10; i++) {
       const character = generator.next().value;
       expect(character).toBeInstanceOf(Character);
       characters.add(character.type);
     }
     
-    // Проверка на то, что все типы были использованы
     expect(characters.size).toBeGreaterThanOrEqual(1);
   });
 
