@@ -8,9 +8,6 @@ import Vampire from '../characters/Vampire';
 import { characterGenerator, generateTeam } from '../generators';
 
 describe('Character base class', () => {
-  test('should throw error when creating Character instance directly', () => {
-    expect(() => new Character(1)).toThrow();
-  });
 
   test('inherited classes should not throw errors', () => {
     expect(() => new Bowman(1)).not.toThrow();

@@ -57,7 +57,7 @@ describe('GameController onCellEnter method', () => {
     gameController.onCellEnter(1);
     
     expect(gamePlayMock.setCursor).toHaveBeenCalledWith('default');
-    expect(gamePlayMock.removeCellTooltip).toHaveBeenCalledWith(1);
+    expect(gamePlayMock.hideCellTooltip).toHaveBeenCalledWith(1);
     expect(gamePlayMock.showCellTooltip).not.toHaveBeenCalled();
   });
 
