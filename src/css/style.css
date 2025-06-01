@@ -276,7 +276,7 @@ body {
 .character.dead {
   background: url('../img/characters/dead.png');
   opacity: 0.7;
-  filter: grayscale(100%);
+  filter: grayscale(70%);
   pointer-events: none;
   cursor: not-allowed;
 }
@@ -339,8 +339,6 @@ body {
 
 // Меню выбора действий
 
-
-
 .action-menu {
   z-index: 1002;
   position: absolute;
@@ -384,8 +382,6 @@ body {
 .action-button:hover {
   background: #555;
 }
-
-
 
 // анимация перемещения
 
@@ -447,10 +443,6 @@ body {
   50% { transform: translateX(-50%) scale(2); opacity: 1; }
   100% { transform: translateX(-50%) scale(1.5); opacity: 0; }
 }
-
-
-/* Курсор при наведении */
-
 
 /* Меню статиситки игры */
 
