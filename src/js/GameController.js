@@ -1,6 +1,6 @@
-// import themes from './themes.js';
 import { PositionedCharacter } from './PositionedCharacter.js';
 import { generateTeam } from './generators.js';
+import GameStateService from './GameStateService.js';
 import GameState from './GameState.js';
 import Bowman from './characters/Bowman.js';
 import Swordsman from './characters/Swordsman.js';
@@ -37,6 +37,8 @@ export default class GameController {
     this.maxLevel = 4;
     this.themes = ['prairie', 'desert', 'arctic', 'mountain'];
     this.maxScore = 0;
+
+    this.stateService = new GameStateService(localStorage, this.gamePlay);
   }
 
   async checkWinConditions() {
@@ -122,6 +124,44 @@ export default class GameController {
     this.gamePlay.updateStats(this.currentLevel, this.maxScore);
   }
 
+  saveGame() {
+    try {
+      const gameState = new GameState(
+        this.gameState.currentTurn,
+        this.maxScore,
+        this.currentLevel,
+        this.playerTeam,
+        this.enemyTeam,
+        this.positionedPlayerCharacters,
+        this.positionedEnemyCharacters
+      );
+      this.stateService.save(gameState);
+    } catch (error) {
+      this.gamePlay.showError('Ошибка при сохранении игры');
+      console.error('Save error:', error);
+    }
+  }
+  
+loadGame() {
+  try {
+    const loadedState = this.stateService.load();
+    this.gameState.currentTurn = loadedState.currentTurn;
+    this.maxScore = loadedState.maxScore;
+    this.currentLevel = loadedState.currentLevel;
+    this.playerTeam = loadedState.playerTeam;
+    this.enemyTeam = loadedState.enemyTeam;
+    this.positionedPlayerCharacters = loadedState.positionedPlayerCharacters;
+    this.positionedEnemyCharacters = loadedState.positionedEnemyCharacters;
+    
+    this.redrawTeams();
+    this.updateTurnIndicator();
+    this.updateStats();
+  } catch (error) {
+    console.error('Ошибка загрузки:', error);
+    this.gamePlay.showError('Не удалось загрузить игру');
+  }
+}
+
   init() {
     try {
       const theme = this.themes[this.currentLevel - 1];
@@ -131,7 +171,9 @@ export default class GameController {
       this.setupEventListeners();
       
       this.gamePlay.addNewGameListener(() => this.newGame());
-
+      this.gamePlay.addSaveGameListener(() => this.saveGame());
+      this.gamePlay.addLoadGameListener(() => this.loadGame());
+  
       this.gamePlay.setCursor = (cursorType) => {
         this.gamePlay.boardEl.style.cursor = cursorType;
       };
