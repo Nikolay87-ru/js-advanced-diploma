@@ -31,10 +31,12 @@ export default class GameStateService {
       const data = JSON.parse(this.storage.getItem('state'));
       if (!data) throw new Error('Нет сохраненных данных');
       
+      console.log('Loaded data:', JSON.parse(JSON.stringify(data)));
+      
       this.gamePlay.showMessage('Игра загружена');
       return GameState.from(data);
     } catch (error) {
-      console.error('Ошибка загрузки:', error);
+      console.error('Load error:', error);
       this.gamePlay.showError('Не удалось загрузить игру');
       throw error;
     }

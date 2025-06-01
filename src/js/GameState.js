@@ -1,3 +1,6 @@
+import Character from "./Character.js";
+import { PositionedCharacter } from "./PositionedCharacter.js";
+
 export default class GameState {
   static from(object) {
     return new GameState(
@@ -30,7 +33,29 @@ export default class GameState {
   }
 
   serialize() {
-    return {
+    const safeSerialize = (obj) => {
+      if (Array.isArray(obj)) {
+        return obj.map(item => safeSerialize(item));
+      }
+      if (obj instanceof PositionedCharacter) {
+        return {
+          character: safeSerialize(obj.character),
+          position: obj.position
+        };
+      }
+      if (obj instanceof Character) {
+        const serialized = {};
+        Object.keys(obj).forEach(key => {
+          if (typeof obj[key] !== 'function' && key !== 'actions' && key !== 'moveCost') {
+            serialized[key] = obj[key];
+          }
+        });
+        return serialized;
+      }
+      return obj;
+    };
+    
+    return safeSerialize({
       currentTurn: this.currentTurn,
       maxScore: this.maxScore,
       currentLevel: this.currentLevel,
@@ -38,6 +63,6 @@ export default class GameState {
       enemyTeam: this.enemyTeam,
       positionedPlayerCharacters: this.positionedPlayerCharacters,
       positionedEnemyCharacters: this.positionedEnemyCharacters
-    };
+    });
   }
 }

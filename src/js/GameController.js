@@ -12,7 +12,7 @@ import Vampire from './characters/Vampire.js';
 export default class GameController {
   constructor(gamePlay, stateService) {
     this.gamePlay = gamePlay;
-    this.stateService = stateService;
+    this.stateService = stateService || new GameStateService(localStorage, this.gamePlay);
     this.playerTypes = [Bowman, Swordsman, Magician];
     this.enemyTypes = [Daemon, Undead, Vampire];
 
@@ -142,25 +142,79 @@ export default class GameController {
     }
   }
   
-loadGame() {
-  try {
-    const loadedState = this.stateService.load();
-    this.gameState.currentTurn = loadedState.currentTurn;
-    this.maxScore = loadedState.maxScore;
-    this.currentLevel = loadedState.currentLevel;
-    this.playerTeam = loadedState.playerTeam;
-    this.enemyTeam = loadedState.enemyTeam;
-    this.positionedPlayerCharacters = loadedState.positionedPlayerCharacters;
-    this.positionedEnemyCharacters = loadedState.positionedEnemyCharacters;
-    
-    this.redrawTeams();
-    this.updateTurnIndicator();
-    this.updateStats();
-  } catch (error) {
-    console.error('Ошибка загрузки:', error);
-    this.gamePlay.showError('Не удалось загрузить игру');
+  async loadGame() {
+    try {
+      const loadedState = this.stateService.load();
+      
+      const restoreTeam = (team, types) => {
+        if (!team || !team.characters) return team;
+        team.characters = team.characters.map(charData => {
+          const CharClass = types.find(t => t.name.toLowerCase() === charData.type);
+          if (!CharClass) return charData;
+          
+          const character = new CharClass(charData.level);
+          
+          Object.keys(charData).forEach(key => {
+            if (key !== 'actions' && key !== 'moveCost') {
+              character[key] = charData[key];
+            }
+          });
+          
+          return character;
+        });
+        return team;
+      };
+  
+      this.maxScore = loadedState.maxScore;
+      this.currentLevel = loadedState.currentLevel;
+      this.gameState.currentTurn = loadedState.currentTurn;
+      
+      this.playerTeam = restoreTeam(loadedState.playerTeam, this.playerTypes);
+      this.enemyTeam = restoreTeam(loadedState.enemyTeam, this.enemyTypes);
+      
+      const restorePositioned = (team, positioned) => {
+        return positioned.map(pc => {
+          const char = team?.characters?.find(c => 
+            c.type === pc.character.type && 
+            c.level === pc.character.level
+          ) || pc.character;
+          return new PositionedCharacter(char, pc.position);
+        });
+      };
+  
+      this.positionedPlayerCharacters = restorePositioned(
+        this.playerTeam, 
+        loadedState.positionedPlayerCharacters
+      );
+      this.positionedEnemyCharacters = restorePositioned(
+        this.enemyTeam,
+        loadedState.positionedEnemyCharacters
+      );
+  
+      const theme = this.themes[this.currentLevel - 1];
+      this.gamePlay.drawUi(theme);
+      
+      this.setupEventListeners();
+      this.gamePlay.addNewGameListener(() => this.newGame());
+      this.gamePlay.addSaveGameListener(() => this.saveGame());
+      this.gamePlay.addLoadGameListener(() => this.loadGame());
+      
+      this.redrawTeams();
+      this.updateTurnIndicator();
+      this.updateStats();
+      this.resetCharactersActionPoints();
+      
+      console.log('Game loaded successfully:', {
+        playerTeam: this.playerTeam,
+        enemyTeam: this.enemyTeam,
+        positionedChars: this.positionedPlayerCharacters
+      });
+    } catch (error) {
+      console.error('Load error:', error);
+      this.gamePlay.showError('Не удалось загрузить игру');
+      this.newGame();
+    }
   }
-}
 
   init() {
     try {
@@ -261,6 +315,10 @@ loadGame() {
   }
 
   setupEventListeners() {
+    this.gamePlay.cellClickListeners = [];
+    this.gamePlay.cellEnterListeners = [];
+    this.gamePlay.cellLeaveListeners = [];
+
     this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
     this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
     this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
@@ -280,9 +338,24 @@ loadGame() {
   }
 
   onCellClick(index) {
-    if (this.isGameLocked) return;
+    if (this.isGameLocked) {
+      console.warn('Game is locked!');
+      return;
+    }
+    
     const allChars = this.getAllCharacters();
     const clickedChar = this.gamePlay.findCharacterByPosition(allChars, index);
+    
+    if (!clickedChar) {
+      console.log('No character at position', index);
+    } else {
+      console.log('Clicked character:', {
+        type: clickedChar.type,
+        team: clickedChar.team,
+        isDead: clickedChar.isDead,
+        proto: Object.getPrototypeOf(clickedChar)
+      });
+    }
 
     if (clickedChar) {
       if (this.playerTeam.characters.includes(clickedChar)) {

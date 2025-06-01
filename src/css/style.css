@@ -395,7 +395,7 @@ body {
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  color: red;
+  color: #ff0;
   font-weight: bold;
   font-size: 1.2em;
   z-index: 2000;
@@ -406,7 +406,7 @@ body {
 }
 
 .damage.critical {
-  color: #ff0;
+  color: red;
   animation: criticalHit 1s forwards;
   z-index: 2000;
 }
