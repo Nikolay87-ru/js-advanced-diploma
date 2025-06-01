@@ -110,19 +110,105 @@
 
 - [x] Тесты модуля `gamecontroller.test.js`:
 
+### Тесты для метода `onCellEnter`:
+
 `should show tooltip with correct character info when entering cell with character` - проверяет:
-  - Установку курсора в pointer при наведении на персонажа
+  - Установку курсора в `pointer` при наведении на персонажа
   - Показ tooltip с информацией о персонаже
   - Содержимое tooltip (тип, уровень, здоровье)
 
 `should not show tooltip when entering empty cell` - проверяет:
-  - Установку курсора в default при наведении на пустую клетку
+  - Установку курсора в `default` при наведении на пустую клетку
   - Скрытие tooltip для пустой клетки
   - Отсутствие показа нового tooltip
 
 `should not show green selection when entering selected character cell` - проверяет:
   - Отсутствие выделения зеленым уже выбранного персонажа
   - Показ tooltip для выбранного персонажа
+
+### Тесты для конкретных персонажей:
+
+#### Bowman:
+`should have correct attack range and movement` - проверяет:
+  - Дальность атаки (3 клетки)
+  - Дальность перемещения (4 клетки)
+  - Стоимость перемещения по прямой и диагонали
+
+`should calculate attack damage correctly` - проверяет:
+  - Диапазон урона обычной атаки (15-25)
+  - Стоимость атаки (1 очко)
+
+`should calculate hard attack damage correctly` - проверяет:
+  - Диапазон урона усиленной атаки (20-30)
+  - Стоимость атаки (2 очка)
+
+#### Swordsman:
+`should have correct attack range and movement` - проверяет:
+  - Дальность атаки (1 клетка)
+  - Дальность перемещения (4 клетки)
+
+`should calculate high melee damage` - проверяет:
+  - Диапазон урона (30-40)
+
+#### Magician:
+`should have correct attack range and movement costs` - проверяет:
+  - Дальность атаки (4 клетки)
+  - Дальность перемещения (2 клетки)
+  - Стоимость перемещения по прямой и диагонали
+
+`should have resurrect ability` - проверяет:
+  - Наличие способности воскрешения
+  - Количество восстанавливаемого здоровья (50)
+  - Стоимость способности (2 очка)
+
+#### Daemon:
+`should have correct attack range and movement` - проверяет:
+  - Дальность атаки (2 клетки)
+  - Дальность перемещения (2 клетки)
+  - Принадлежность к команде врагов
+
+`should calculate high damage with critical chance` - проверяет:
+  - Диапазон урона (20-30)
+
+#### Undead:
+`should have correct attack range and movement` - проверяет:
+  - Дальность атаки (2 клетки)
+  - Дальность перемещения (4 клетки)
+
+`should calculate very high damage` - проверяет:
+  - Диапазон урона (30-40)
+
+#### Vampire:
+`should have correct attack range and movement` - проверяет:
+  - Дальность атаки (2 клетки)
+  - Дальность перемещения (2 клетки)
+
+`should calculate damage with critical chance` - проверяет:
+  - Диапазон урона (10-20)
+
+### Тесты механик:
+
+`should calculate correct move cost for different characters` - проверяет:
+  - Расчет стоимости перемещения для разных персонажей
+  - Разницу в стоимости прямого и диагонального перемещения
+
+`should generate correct path for movement` - проверяет:
+  - Корректность генерации пути перемещения
+  - Включение ключевых точек пути
+
+`should perform attack with correct damage calculation` - проверяет:
+  - Нанесение урона врагу
+  - Отображение анимации урона
+  - Корректность работы системы здоровья
+
+`should not allow attack when out of range` - проверяет:
+  - Блокировку атаки при слишком большом расстоянии
+  - Показ сообщения об ошибке
+
+`should apply defence bonus correctly` - проверяет:
+  - Увеличение показателя защиты
+  - Обнуление очков действий после защиты
+  - Показ сообщения об усилении защиты
 
 ###### Статус прокрытия кода тестами:
 [![Build status](https://ci.appveyor.com/api/projects/status/t6stdwsxbhqq80fs?svg=true)](https://ci.appveyor.com/project/Nikolay87-ru/js-advanced-diploma)
