@@ -314,29 +314,6 @@ body {
   background: #f00;
 }
 
-.damage {
-  position: absolute;
-  width: var(--cell-size);
-  text-align: center;
-  z-index: 999;
-  color: #f00;
-  font-weight: bold;
-  animation: 500ms fade ease-out;
-}
-
-@keyframes fade {
-  from {
-    opacity: 0;
-    top: calc(var(--cell-size) * 0.5);
-    font-size: 1rem;
-  }
-  to {
-    opacity: 1;
-    top: -20px;
-    font-size: 1.5rem;
-  }
-}
-
 // Меню выбора действий
 
 .action-menu {
@@ -421,7 +398,7 @@ body {
   color: red;
   font-weight: bold;
   font-size: 1.2em;
-  z-index: 1000;
+  z-index: 2000;
   pointer-events: none;
   text-shadow: 0 0 3px black;
   will-change: transform, opacity;
@@ -431,6 +408,7 @@ body {
 .damage.critical {
   color: #ff0;
   animation: criticalHit 1s forwards;
+  z-index: 2000;
 }
 
 @keyframes damageAnimation {
