@@ -130,7 +130,13 @@ export default class GamePlay {
   }
   
   findPositionByCharacter(positionedCharacters, character) {
-    const positionedChar = positionedCharacters.find(c => c.character === character);
+    const positionedChar = positionedCharacters.find(
+      (c) => c.character === character
+    );
+    if (!positionedChar) {
+      console.error('Character not found in positionedCharacters:', character);
+      console.log('Current positionedCharacters:', positionedCharacters);
+    }
     return positionedChar ? positionedChar.position : null;
   }
 
@@ -267,7 +273,7 @@ export default class GamePlay {
     if (!cell) return;
   
     const existingDamage = cell.querySelector('.damage');
-    if (existingDamage) {
+    if (existingDamage && cell.contains(existingDamage)) {
       cell.removeChild(existingDamage);
     }
   
@@ -275,8 +281,6 @@ export default class GamePlay {
     damageEl.className = `damage ${isCritical ? 'critical' : ''}`;
     damageEl.textContent = `-${damage}`;
     cell.appendChild(damageEl);
-  
-    damageEl.style.animation = 'damageAnimation 1s forwards';
   
     await new Promise(resolve => {
       damageEl.addEventListener('animationend', () => {
@@ -310,9 +314,12 @@ export default class GamePlay {
   
   removeCellTooltip(index) {
     const cell = this.cells[index];
-    if (!cell || !cell.tooltip || !cell.contains(cell.tooltip)) return;
+    if (!cell) return;
     
-    cell.removeChild(cell.tooltip);
+    const tooltip = cell.querySelector('.custom-tooltip');
+    if (tooltip && cell.contains(tooltip)) {
+      cell.removeChild(tooltip);
+    }
     delete cell.tooltip;
   }
 

@@ -407,21 +407,28 @@ export default class GameController {
   }
 
   updateCharacterPosition(character, newPosition) {
+    console.log(`Updating position for ${character.type} to ${newPosition}`);
+    
     if (this.playerTeam.characters.includes(character)) {
       this.positionedPlayerCharacters = this.positionedPlayerCharacters.map(
-        (pc) =>
-          pc.character === character
-            ? new PositionedCharacter(character, newPosition)
-            : pc
+        (pc) => pc.character === character
+          ? new PositionedCharacter(character, newPosition)
+          : pc
       );
     } else {
       this.positionedEnemyCharacters = this.positionedEnemyCharacters.map(
-        (pc) =>
-          pc.character === character
-            ? new PositionedCharacter(character, newPosition)
-            : pc
+        (pc) => pc.character === character
+          ? new PositionedCharacter(character, newPosition)
+          : pc
       );
     }
+    
+    const checkPos = this.findPositionByCharacter(
+      [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters],
+      character
+    );
+    console.assert(checkPos === newPosition, 
+      `Position update failed for ${character.type}! Expected ${newPosition}, got ${checkPos}`);
   }
 
   showAttackMenu(attacker, target, targetIndex) {
@@ -540,38 +547,34 @@ export default class GameController {
   }
 
   async performAttack(attacker, target, targetIndex, attackType) {
-  const attackerPos = this.gamePlay.findPositionByCharacter(
-    attacker.team === 'player' 
-      ? this.positionedPlayerCharacters 
-      : this.positionedEnemyCharacters,
-    attacker
-  );
+    if (!attacker) {
+      console.error('Attacker is undefined');
+      return;
+    }
   
-  if (attackerPos === null) {
-    this.gamePlay.showError(`${attacker.type}: Не могу найти позицию атакующего!`);
-    return;
-  }
-
-  if (attacker.team === 'player') {
-    this.increaseScore(10); 
+    const attackerPos = this.findPositionByCharacter(
+      [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters],
+      attacker
+    );
     
-    if (target.health <= 0) {
-      this.increaseScore(50); 
+    if (attackerPos === null) {
+      console.error('Attacker position not found:', attacker);
+      this.gamePlay.showError(`${attacker.type}: Не могу найти позицию атакующего!`);
+      return;
     }
-  }
-
-  const distance = this.calculateDistance(
-    this.indexToPosition(attackerPos),
-    this.indexToPosition(targetIndex)
-  );
-
-  if (distance > attacker.attackDistance) {
-    if (attacker.team === 'player') {
-      this.gamePlay.showError('Враг слишком далеко!');
-    }
-    return;
-  }
   
+    const distance = attacker.calculateDistance(
+      this.indexToPosition(attackerPos),
+      this.indexToPosition(targetIndex)
+    );
+  
+    if (distance > attacker.attackDistance) {
+      if (attacker.team === 'player') {
+        this.gamePlay.showError('Враг слишком далеко!');
+      }
+      return;
+    }
+    
     const cost = attackType === 'attack' ? 1 : 2;
     if (attacker.currentActionPoints < cost) {
       this.gamePlay.showError('Недостаточно очков действий!');
@@ -665,19 +668,17 @@ export default class GameController {
       this.gameState.currentTurn === 'player' ? 'enemy' : 'player';
     this.updateTurnIndicator();
   
-    console.log(`Turn switched to: ${this.gameState.currentTurn}`); 
-  
     if (this.gameState.currentTurn === 'enemy' && !this.isGameLocked) {
-      console.log('Starting AI move...'); 
       await this.makeEnemyMove();
     }
   }
 
   async makeEnemyMove() {
-    console.log('AI move started'); 
-    
+    console.log('Starting enemy move. Current positions:', {
+      players: this.positionedPlayerCharacters.map(pc => `${pc.character.type}:${pc.position}`),
+      enemies: this.positionedEnemyCharacters.map(pc => `${pc.character.type}:${pc.position}`)
+    });
     if (await this.checkWinConditions()) {
-      console.log('AI stopped - win condition met');
       return;
     }
   
@@ -686,35 +687,35 @@ export default class GameController {
         .filter(pc => !pc.character.isDead && pc.character.currentActionPoints > 0)
         .sort((a, b) => b.character.attackDistance - a.character.attackDistance);
   
-      console.log(`Active enemies: ${activeEnemies.length}`); 
-  
       for (const positionedChar of activeEnemies) {
         const enemy = positionedChar.character;
         const enemyPos = positionedChar.position;
         
-        console.log(`Processing enemy: ${enemy.type} at ${enemyPos}`);
-  
         const targets = this.positionedPlayerCharacters
           .filter(pc => !pc.character.isDead)
           .map(pc => ({
-            ...pc,
-            distance: this.calculateDistance(
+            character: pc.character,
+            position: pc.position,
+            distance: enemy.calculateDistance(
               this.indexToPosition(enemyPos),
               this.indexToPosition(pc.position)
             )
           }));
   
-        if (targets.length === 0) {
-          console.log('No targets available');
-          continue;
-        }
+        if (targets.length === 0) continue;
   
-        const attackableTargets = targets
-          .filter(t => t.distance <= enemy.attackDistance)
-          .sort((a, b) => a.character.health - b.character.health);
+        const sortedTargets = targets.sort((a, b) => {
+          if (a.distance === b.distance) {
+            return a.character.health - b.character.health;
+          }
+          return a.distance - b.distance;
+        });
+  
+        const attackableTargets = sortedTargets.filter(t => 
+          t.distance <= enemy.attackDistance
+        );
   
         if (attackableTargets.length > 0) {
-          console.log(`Attacking target: ${attackableTargets[0].character.type}`);
           await this.performAttack(
             enemy,
             attackableTargets[0].character,
@@ -725,9 +726,7 @@ export default class GameController {
           continue;
         }
   
-        const nearestTarget = targets.sort((a, b) => a.distance - b.distance)[0];
-        console.log(`Moving towards: ${nearestTarget.character.type}`);
-        
+        const nearestTarget = sortedTargets[0];
         const path = this.calculatePath(
           enemyPos,
           nearestTarget.position,
@@ -739,7 +738,6 @@ export default class GameController {
           const moveCost = this.calculateMoveCost(enemyPos, moveToIndex, enemy);
           
           if (moveCost <= enemy.currentActionPoints) {
-            console.log(`Moving to position: ${moveToIndex}`);
             await this.moveEnemyCharacter(enemy, moveToIndex);
             if (await this.checkWinConditions()) return;
           }
@@ -748,14 +746,13 @@ export default class GameController {
     } catch (error) {
       console.error('AI move error:', error);
     } finally {
-      console.log('AI move completed');
       this.switchTurn();
     }
   }
 
   getAttackTargets(enemy, enemyPos, playerChars) {
     return playerChars.filter((playerChar) => {
-      const distance = this.calculateDistance(
+      const distance = enemy.calculateDistance(
         this.indexToPosition(enemyPos),
         this.indexToPosition(playerChar.position)
       );
@@ -765,11 +762,11 @@ export default class GameController {
 
   async moveTowardsNearestPlayer(enemy, enemyPos, playerChars) {
     const nearestPlayer = playerChars.reduce((prev, current) => {
-      const prevDistance = this.calculateDistance(
+      const prevDistance = enemy.calculateDistance(
         this.indexToPosition(enemyPos),
         this.indexToPosition(prev.position)
       );
-      const currentDistance = this.calculateDistance(
+      const currentDistance = enemy.calculateDistance(
         this.indexToPosition(enemyPos),
         this.indexToPosition(current.position)
       );
@@ -791,33 +788,28 @@ export default class GameController {
   async moveEnemyCharacter(character, toIndex) {
     try {
       const fromIndex = this.findPositionByCharacter(
-        this.positionedEnemyCharacters,
+        [...this.positionedPlayerCharacters, ...this.positionedEnemyCharacters],
         character
       );
+      
       if (fromIndex === null || typeof fromIndex !== 'number') {
+        console.error('Cannot find character position before move:', character);
         return false;
       }
-
-      const path = this.calculatePath(
-        fromIndex,
-        toIndex,
-        character.moveDistance
-      );
-
+  
+      const path = this.calculatePath(fromIndex, toIndex, character.moveDistance);
       if (!path || !path.includes(toIndex)) {
         return false;
       }
-
+  
       const moveCost = this.calculateMoveCost(fromIndex, toIndex, character);
       if (moveCost > character.currentActionPoints) {
         return false;
       }
-
+  
       await this.animateMovement(character, path);
-
       character.currentActionPoints -= moveCost;
       this.updateCharacterPosition(character, toIndex);
-
       this.redrawTeams();
       return true;
     } catch (error) {
@@ -827,15 +819,26 @@ export default class GameController {
   }
 
   findPositionByCharacter(positionedCharacters, character) {
-    const positionedChar = positionedCharacters.find(
-      (c) => c.character === character
+    const allPositionedChars = [
+      ...this.positionedPlayerCharacters,
+      ...this.positionedEnemyCharacters
+    ];
+    
+    const positionedChar = allPositionedChars.find(
+      (pc) => pc.character === character
     );
+    
+    if (!positionedChar) {
+      console.error('Character not found:', {
+        character,
+        allPositionedChars: allPositionedChars.map(pc => ({
+          type: pc.character.type,
+          position: pc.position,
+          isDead: pc.character.isDead
+        }))
+      });
+    }
+    
     return positionedChar ? positionedChar.position : null;
-  }
-
-  calculateDistance(pos1, pos2) {
-    const dx = Math.abs(pos1.x - pos2.x);
-    const dy = Math.abs(pos1.y - pos2.y);
-    return Math.max(dx, dy);
   }
 }
