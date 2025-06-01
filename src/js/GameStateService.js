@@ -1,25 +1,42 @@
 import GameState from './GameState.js';
 
 export default class GameStateService {
-  constructor(storage) {
+  constructor(storage, gamePlay) {
     this.storage = storage;
+    this.gamePlay = gamePlay;
   }
 
   save(state) {
-    const gameState = {
-      currentTurn: state.currentTurn,
-      maxScore: state.maxScore
-    };
-    this.storage.setItem('state', JSON.stringify(gameState));
+    try {
+      const gameState = new GameState(
+        state.currentTurn,
+        state.maxScore,
+        state.currentLevel,
+        state.playerTeam,
+        state.enemyTeam,
+        state.positionedPlayerCharacters,
+        state.positionedEnemyCharacters
+      ).serialize();
+      
+      this.storage.setItem('state', JSON.stringify(gameState));
+      this.gamePlay.showMessage('Игра сохранена');
+    } catch (error) {
+      console.error('Ошибка сохранения:', error);
+      this.gamePlay.showError('Не удалось сохранить игру');
+    }
   }
 
   load() {
     try {
       const data = JSON.parse(this.storage.getItem('state'));
-      return new GameState(data.currentTurn, data.maxScore || 0);
-    // eslint-disable-next-line no-unused-vars
-    } catch (e) {
-      throw new Error('Invalid state');
+      if (!data) throw new Error('Нет сохраненных данных');
+      
+      this.gamePlay.showMessage('Игра загружена');
+      return GameState.from(data);
+    } catch (error) {
+      console.error('Ошибка загрузки:', error);
+      this.gamePlay.showError('Не удалось загрузить игру');
+      throw error;
     }
   }
 }
