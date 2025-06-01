@@ -269,9 +269,12 @@ export default class GameController {
           `${positionedChar.character.type} \n (🎖${positionedChar.character.level} ⚔${positionedChar.character.attack} 🛡${positionedChar.character.defence} ❤${positionedChar.character.health})`,
           index
         );
+      } else {
+        this.gamePlay.removeCellTooltip(index);
       }
     } else {
       this.gamePlay.setCursor('default');
+      this.gamePlay.removeCellTooltip(index);
     }
   }
 

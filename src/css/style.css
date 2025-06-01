@@ -113,6 +113,14 @@ body {
   border-style: dashed;
 }
 
+.cell:hover {
+  cursor: default;
+}
+
+.cell:hover .custom-tooltip {
+  display: block;
+}
+
 .custom-tooltip {
   position: absolute;
   z-index: 9999;
@@ -135,10 +143,6 @@ body {
   font-size: 1.2em;
   font-weight: bold;
   margin-bottom: 5px;
-}
-
-.cell:hover .custom-tooltip {
-  display: block;
 }
 
 .board.prairie {
@@ -234,7 +238,7 @@ body {
   width: var(--cell-size);
   height: var(--cell-size);
   position: absolute;
-  z-index: 99;
+  z-index: 1001;
 }
 
 .character.generic {
@@ -274,6 +278,14 @@ body {
   opacity: 0.7;
   filter: grayscale(100%);
   pointer-events: none;
+  cursor: not-allowed;
+}
+
+.character:hover {
+  cursor: pointer;
+}
+
+.character.dead:hover {
   cursor: not-allowed;
 }
 
@@ -327,10 +339,7 @@ body {
 
 // Меню выбора действий
 
-.character.dead {
-  background: url('../img/characters/dead.png');
-  opacity: 0.7;
-}
+
 
 .action-menu {
   z-index: 1002;
@@ -342,12 +351,16 @@ body {
   left: 100%;
   top: 50%;
   transform: translateY(-50%);
+  position: absolute;
+  z-index: 1999;
 }
 
 .defence-menu {
   left: 50%;
   bottom: -50%;
   transform: translateX(-50%);
+  position: absolute;
+  z-index: 1999;
 }
 
 .resurrect-menu {
@@ -366,16 +379,13 @@ body {
   border-radius: 3px;
   text-align: left;
   white-space: nowrap;
-  width: 100%;
 }
 
 .action-button:hover {
   background: #555;
 }
 
-.character {
-  z-index: 1001;
-}
+
 
 // анимация перемещения
 
@@ -440,9 +450,7 @@ body {
 
 
 /* Курсор при наведении */
-.cell:hover {
-  cursor: pointer;
-}
+
 
 /* Меню статиситки игры */
 
