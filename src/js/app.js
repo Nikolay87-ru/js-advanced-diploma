@@ -8,7 +8,7 @@ import GameStateService from './GameStateService.js';
 const gamePlay = new GamePlay();
 gamePlay.bindToDOM(document.querySelector('#game-container'));
 
-const stateService = new GameStateService(localStorage);
+const stateService = new GameStateService(localStorage, gamePlay);
 
 const gameCtrl = new GameController(gamePlay, stateService);
 gameCtrl.init();
