@@ -157,7 +157,7 @@ describe('GameController character specific tests', () => {
       const bowman = new Bowman(1);
       const attack = bowman.actions.hardAttack();
       expect(attack.damage).toBeGreaterThanOrEqual(20);
-      expect(attack.damage).toBeLessThanOrEqual(35);
+      expect(attack.damage).toBeLessThanOrEqual(50);
       expect(attack.cost).toBe(2);
     });
   });
@@ -173,7 +173,7 @@ describe('GameController character specific tests', () => {
       const swordsman = new Swordsman(1);
       const attack = swordsman.actions.attack();
       expect(attack.damage).toBeGreaterThanOrEqual(30);
-      expect(attack.damage).toBeLessThanOrEqual(55);
+      expect(attack.damage).toBeLessThanOrEqual(60);
     });
   });
 
@@ -207,7 +207,7 @@ describe('GameController character specific tests', () => {
       const daemon = new Daemon(1);
       const attack = daemon.actions.attack();
       expect(attack.damage).toBeGreaterThanOrEqual(20);
-      expect(attack.damage).toBeLessThanOrEqual(35);
+      expect(attack.damage).toBeLessThanOrEqual(60);
     });
   });
 

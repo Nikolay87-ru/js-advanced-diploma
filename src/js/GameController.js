@@ -38,7 +38,7 @@ export default class GameController {
     this.themes = ['prairie', 'desert', 'arctic', 'mountain'];
     this.maxScore = 0;
 
-    this.stateService = new GameStateService(localStorage, this.gamePlay);
+    // this.stateService = new GameStateService(localStorage, this.gamePlay);
   }
 
   async checkWinConditions() {

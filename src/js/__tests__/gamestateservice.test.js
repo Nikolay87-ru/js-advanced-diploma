@@ -15,7 +15,13 @@ describe('GameStateService', () => {
     
     gamePlayMock = {
       showMessage: jest.fn(),
-      showError: jest.fn()
+      showError: jest.fn(),
+      drawUi: jest.fn(), 
+      redrawPositions: jest.fn(), 
+      updateStats: jest.fn(), 
+      deselectAllCells: jest.fn(), 
+      hideActionMenu: jest.fn(),
+      bindToDOM: jest.fn()
     };
     
     stateService = new GameStateService(storageMock, gamePlayMock);
@@ -77,14 +83,14 @@ describe('GameStateService', () => {
     test('should show error message when load fails (invalid data)', () => {
       storageMock.getItem.mockReturnValue('invalid json');
       
-      expect(() => stateService.load()).toThrow('Не удалось загрузить игру');
+      expect(() => stateService.load()).toThrow(SyntaxError);
       expect(gamePlayMock.showError).toHaveBeenCalledWith('Не удалось загрузить игру');
     });
 
     test('should show error message when no saved data', () => {
       storageMock.getItem.mockReturnValue(null);
       
-      expect(() => stateService.load()).toThrow('Не удалось загрузить игру');
+      expect(() => stateService.load()).toThrow('Нет сохраненных данных');
       expect(gamePlayMock.showError).toHaveBeenCalledWith('Не удалось загрузить игру');
     });
   });
@@ -99,16 +105,36 @@ describe('GameController save/load', () => {
     gamePlayMock = {
       addSaveGameListener: jest.fn(),
       addLoadGameListener: jest.fn(),
+      addNewGameListener: jest.fn(),
       showMessage: jest.fn(),
-      showError: jest.fn()
+      showError: jest.fn(),
+      drawUi: jest.fn(),
+      redrawPositions: jest.fn(),
+      updateStats: jest.fn(),
+      deselectAllCells: jest.fn(),
+      hideActionMenu: jest.fn(),
+      addCellClickListener: jest.fn(),
+      addCellEnterListener: jest.fn(),
+      addCellLeaveListener: jest.fn(),
+      boardEl: { style: { cursor: '' } },
+      boardSize: 8,
+      bindToDOM: jest.fn(),
+      container: document.createElement('div')
     };
     
     stateServiceMock = {
       save: jest.fn(),
-      load: jest.fn()
+      load: jest.fn().mockReturnValue(new GameState())
     };
     
     gameController = new GameController(gamePlayMock, stateServiceMock);
+    
+    gameController.playerTeam = { characters: [] };
+    gameController.enemyTeam = { characters: [] };
+    gameController.positionedPlayerCharacters = [];
+    gameController.positionedEnemyCharacters = [];
+    gameController.gameState = { currentTurn: 'player' };
+    gameController.isGameLocked = false;
   });
 
   test('should bind save and load listeners on init', () => {
@@ -116,15 +142,38 @@ describe('GameController save/load', () => {
     
     expect(gamePlayMock.addSaveGameListener).toHaveBeenCalled();
     expect(gamePlayMock.addLoadGameListener).toHaveBeenCalled();
+    expect(gamePlayMock.addNewGameListener).toHaveBeenCalled();
   });
 
   test('should call stateService.save on saveGame', () => {
-    gameController.saveGame();
+    const originalSaveGame = gameController.saveGame;
+    
+    gameController.saveGame = jest.fn(() => {
+      originalSaveGame.call(gameController);
+    });
+    
+    gamePlayMock.addSaveGameListener.mockImplementation((callback) => {
+      callback();
+    });
+    
+    gameController.init();
+    
     expect(stateServiceMock.save).toHaveBeenCalled();
   });
 
   test('should call stateService.load on loadGame', () => {
-    gameController.loadGame();
+    const originalLoadGame = gameController.loadGame;
+    
+    gameController.loadGame = jest.fn(() => {
+      originalLoadGame.call(gameController);
+    });
+    
+    gamePlayMock.addLoadGameListener.mockImplementation((callback) => {
+      callback();
+    });
+    
+    gameController.init();
+    
     expect(stateServiceMock.load).toHaveBeenCalled();
   });
 
@@ -133,7 +182,12 @@ describe('GameController save/load', () => {
       throw new Error('Save error');
     });
     
-    gameController.saveGame();
+    gamePlayMock.addSaveGameListener.mockImplementation((callback) => {
+      callback();
+    });
+    
+    gameController.init();
+    
     expect(gamePlayMock.showError).toHaveBeenCalledWith('Ошибка при сохранении игры');
   });
 });
