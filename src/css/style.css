@@ -241,8 +241,8 @@ body {
   z-index: 1001;
 }
 
-.character.generic {
-  background: url('../img/characters/generic.png');
+.character.moving {
+  background: url('../img/characters/moving.png');
 }
 
 .character.bowman {

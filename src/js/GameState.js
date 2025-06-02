@@ -50,6 +50,7 @@ export default class GameState {
             serialized[key] = obj[key];
           }
         });
+        serialized.type = obj.type; 
         return serialized;
       }
       return obj;
@@ -62,7 +63,8 @@ export default class GameState {
       playerTeam: this.playerTeam,
       enemyTeam: this.enemyTeam,
       positionedPlayerCharacters: this.positionedPlayerCharacters,
-      positionedEnemyCharacters: this.positionedEnemyCharacters
+      positionedEnemyCharacters: this.positionedEnemyCharacters,
+      isGameLocked: false 
     });
   }
 }

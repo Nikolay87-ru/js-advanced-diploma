@@ -143,6 +143,7 @@ export default class GameController {
   }
   
   async loadGame() {
+    this.isGameLocked = false;
     try {
       const loadedState = this.stateService.load();
       
@@ -164,6 +165,17 @@ export default class GameController {
         });
         return team;
       };
+
+      const restoreActionsAndMoveCost = (character) => {
+        const CharClass = [...this.playerTypes, ...this.enemyTypes].find(
+          t => t.name.toLowerCase() === character.type
+        );
+        if (CharClass) {
+          const tempChar = new CharClass(character.level);
+          character.actions = {...tempChar.actions};
+          character.moveCost = {...tempChar.moveCost};
+        }
+      };
   
       this.maxScore = loadedState.maxScore;
       this.currentLevel = loadedState.currentLevel;
@@ -171,6 +183,10 @@ export default class GameController {
       
       this.playerTeam = restoreTeam(loadedState.playerTeam, this.playerTypes);
       this.enemyTeam = restoreTeam(loadedState.enemyTeam, this.enemyTypes);
+
+      [...this.playerTeam.characters, ...this.enemyTeam.characters].forEach(
+        restoreActionsAndMoveCost
+      );
       
       const restorePositioned = (team, positioned) => {
         return positioned.map(pc => {
@@ -509,7 +525,7 @@ export default class GameController {
 
   async animateMovement(character, path) {
     const originalType = character.type;
-    character.type = 'generic';
+    character.type = 'moving';
 
     for (let i = 1; i < path.length; i++) {
       const toIndex = path[i];

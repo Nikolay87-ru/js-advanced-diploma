@@ -1,5 +1,5 @@
 export default class Character {
-  constructor(level, type = "generic") {
+  constructor(level, type = "moving") {
     if (typeof level !== 'number' || level < 1) {
       throw new Error('Level must be a positive number');
     }
