@@ -160,6 +160,7 @@ npm run webpack-dev
 2. **Сборка проекта**:
 ```bash
 npm run webpack
+```
 ***
 
 ## Авто-тесты 
