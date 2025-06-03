@@ -12,7 +12,10 @@
 
 ***
 
-## [Условия задачи](https://github.com/netology-code/js-advanced-diploma "Ссылка на задание по дипломному проекту")
+[Условия задачи](https://github.com/netology-code/js-advanced-diploma "Ссылка на задание по дипломному проекту")
+[Развернутый проект на сайте GitHub](https://nikolay87-ru.github.io/js-advanced-diploma/ "Ссылка на игру")
+
+***
 
 ### 1. Настройка проекта
 - [x] Конфигурация Webpack с поддержкой:
